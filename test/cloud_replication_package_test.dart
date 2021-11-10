@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_replication_package/src/service/replication_service.dart';
 import 'package:test/test.dart';
 
@@ -9,7 +12,11 @@ import 'package:cloud_replication_package/src/cloud_models/event.dart';
 import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:intl/intl.dart';
 
+import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
+
 void replicationTests() async {
+  final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
   test('Full Replication', () async {
     ReplicationController rep;
     rep = ReplicationService();
@@ -20,13 +27,25 @@ void replicationTests() async {
   /// TEST OF EACH METHOD
   test('create Event', () async {
     var cloud = CloudService();
-    Event event = Event(id_event: '44445555-5555-5555-5555-123456741254', tlp: 'AMBER');
-    await cloud.createEvent('replicationDemo', event);
+    //TO GENERATE A NEW CLOUD UUID
+    Uri url = Uri.parse(uri + '/uuid');
+    HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+    var ioClient = IOClient(client);
+    http.Response response = await ioClient.get(url, headers: <String, String>{
+        'accept': '*/*'
+      });
+    if (response.statusCode == 200) {
+      var uuid = jsonDecode(response.body);
+      Event event = Event(id_event: uuid, tlp: 'AMBER');
+      await cloud.createEvent('replicationDemo', event);
+    } else {
+      print("Something went wrong: $response");
+    }
   });
   test('update Event', () async {
     var cloud = CloudService();
     String id_event = '21546532-4521-3542-1235-54321654';
-    Event event = Event(id_event: id_event, tlp: 'white');
+    Event event = Event(id_event: id_event, tlp: 'WHITE');
     await cloud.updateEvent('anyRandomUserId', id_event, event);
   });
   test('user Exist', () async {
@@ -36,12 +55,11 @@ void replicationTests() async {
   });
   test('create User', () async {
     var cloud = CloudService();
-    await cloud.createUser('replicationDemo');
+    await cloud.createUser('nosa');
   });
   test('get Users', () async {
     var cloud = CloudService();
     List<User> response = await cloud.getUsers();
-    print("--------------------");
     print(response);
   });
   test('get TLP White Events', () async {
@@ -51,21 +69,21 @@ void replicationTests() async {
   });
   test('get TLP White Events - DateTime Filtered', ()  async {
     var cloud = CloudService();
-    var date = DateTime.now();
-    var formatted = DateFormat("yyyy-MM-dd'T'hh:mm:ss").format(date);
-    print(formatted);
+    var date = DateTime.now().subtract(Duration(days:752));
+    var formatted = DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(date);
     var response = await cloud.getTLPWhiteEventsDateFilter(formatted.toString());
     print(response);
   });
   test('get User Events', () async {
     var cloud = CloudService();
-    var response = await cloud.getUserEvents('replicationDemo');
+    var response = await cloud.getUserEvents('anyRandomUserId');
     print(response);
   });
   test('get User Events - DateTime Filtered', () async {
     var cloud = CloudService();
-    String filter= DateTime.now().toString();
-    var response = await cloud.getUserEventsDateFilter('hackathon', filter);
+    var date = DateTime.now().subtract(Duration(days:752));
+    var formatted = DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(date);
+    var response = await cloud.getUserEventsDateFilter('anyRandomUserId', formatted.toString());
     print(response);
   });
   test('get Single User Event', () async {

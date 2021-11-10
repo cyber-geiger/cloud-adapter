@@ -18,11 +18,10 @@ class CloudService {
   // CREATE EVENT
   Future<void> createEvent(String username, Event event) async {
     try {
-      print('CREATED USER EVENT');
+      print('CREATE USER EVENT');
       final String userUri = '/store/user/$username/event';
       Uri url= Uri.parse(uri + userUri);
       print(url);
-      print(event.toJson().toString());
       HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.post(
@@ -31,13 +30,17 @@ class CloudService {
           'Content-Type': 'application/json',
           'accept': 'application/json',
         },
-        body: jsonEncode(event.toJson().toString()),
+        body: jsonEncode(event.toJson()),
       );
-      print('USER EVENT CREATED');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print("EVENT CREATED");
+      } else {
+        print("SOMETHING WENT WRONG: " + response.statusCode.toString());
+        throw Exception(response.body.toString());
+      }
     } catch (e) {
       print('SOME EXCEPTION OCCURED');
-      print(e);
-      throw Exception;
+      throw Exception(e.toString());
     }
   }
 
@@ -56,9 +59,9 @@ class CloudService {
           'Content-Type': 'application/json',
           'accept': 'application/json',
         },
-        body: event,
+        body: jsonEncode(event.toJson()),
       );
-      print('USER EVENT CREATED');
+      print('USER EVENT UPDATED');
     } catch (e) {
       print('SOME EXCEPTION OCCURED');
       print(e);
