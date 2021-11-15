@@ -1,19 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cloud_replication_package/src/service/replication_service.dart';
-import 'package:test/test.dart';
-
 import 'package:cloud_replication_package/cloud_replication_package.dart';
-
-import 'package:cloud_replication_package/src/service/cloud_service.dart';
-
 import 'package:cloud_replication_package/src/cloud_models/event.dart';
 import 'package:cloud_replication_package/src/cloud_models/user.dart';
-import 'package:intl/intl.dart';
-
+import 'package:cloud_replication_package/src/service/cloud_service.dart';
+import 'package:cloud_replication_package/src/service/replication_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'package:intl/intl.dart';
+import 'package:test/test.dart';
 
 void replicationTests() async {
   final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
@@ -29,11 +25,12 @@ void replicationTests() async {
     var cloud = CloudService();
     //TO GENERATE A NEW CLOUD UUID
     Uri url = Uri.parse(uri + '/uuid');
-    HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+    HttpClient client = HttpClient()
+      ..badCertificateCallback =
+          ((X509Certificate cert, String host, int port) => true);
     var ioClient = IOClient(client);
-    http.Response response = await ioClient.get(url, headers: <String, String>{
-        'accept': '*/*'
-      });
+    http.Response response =
+        await ioClient.get(url, headers: <String, String>{'accept': '*/*'});
     if (response.statusCode == 200) {
       var uuid = jsonDecode(response.body);
       Event event = Event(id_event: uuid, tlp: 'AMBER');
@@ -50,7 +47,8 @@ void replicationTests() async {
   });
   test('user Exist', () async {
     final cloud = CloudService();
-    bool response = await cloud.userExists('0425e093-502a-4bcf-a5c4-74ec77d77199');
+    bool response =
+        await cloud.userExists('0425e093-502a-4bcf-a5c4-74ec77d77199');
     print(response);
   });
   test('create User', () async {
@@ -67,11 +65,12 @@ void replicationTests() async {
     List<Event> response = await cloud.getTLPWhiteEvents();
     print(response);
   });
-  test('get TLP White Events - DateTime Filtered', ()  async {
+  test('get TLP White Events - DateTime Filtered', () async {
     var cloud = CloudService();
-    var date = DateTime.now().subtract(Duration(days:752));
+    var date = DateTime.now().subtract(Duration(days: 752));
     var formatted = DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(date);
-    var response = await cloud.getTLPWhiteEventsDateFilter(formatted.toString());
+    var response =
+        await cloud.getTLPWhiteEventsDateFilter(formatted.toString());
     print(response);
   });
   test('get User Events', () async {
@@ -81,14 +80,15 @@ void replicationTests() async {
   });
   test('get User Events - DateTime Filtered', () async {
     var cloud = CloudService();
-    var date = DateTime.now().subtract(Duration(days:752));
+    var date = DateTime.now().subtract(Duration(days: 752));
     var formatted = DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(date);
-    var response = await cloud.getUserEventsDateFilter('anyRandomUserId', formatted.toString());
+    var response = await cloud.getUserEventsDateFilter(
+        'anyRandomUserId', formatted.toString());
     print(response);
   });
   test('get Single User Event', () async {
     var cloud = CloudService();
-    String id_event= '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+    String id_event = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
     Event response = await cloud.getSingleUserEvent('hackathon', id_event);
     print(response);
   });
@@ -100,7 +100,8 @@ void replicationTests() async {
   test('get Threat Weights', () async {
     var cloud = CloudService();
     var response = await cloud.getThreatWeights();
-    print(response);
+    print("threatId: ${response.first.idThreatweights}");
+    print("Botnets weight: ${response.first.threatDict!.botnets}");
   });
 }
 

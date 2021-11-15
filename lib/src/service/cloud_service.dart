@@ -3,12 +3,10 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
-import '../cloud_models/user.dart';
+
 import '../cloud_models/event.dart';
-import '../cloud_models/tag.dart';
-import '../cloud_models/threat_dict.dart';
 import '../cloud_models/threat_weights.dart';
-import '../cloud_models/translation.dart';
+import '../cloud_models/user.dart';
 
 class CloudService {
   final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
@@ -20,9 +18,11 @@ class CloudService {
     try {
       print('CREATE USER EVENT');
       final String userUri = '/store/user/$username/event';
-      Uri url= Uri.parse(uri + userUri);
+      Uri url = Uri.parse(uri + userUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.post(
         url,
@@ -49,9 +49,11 @@ class CloudService {
     try {
       print('UPDATE USER EVENT');
       final String userUri = '/store/user/$username/event/$eventId';
-      Uri url= Uri.parse(uri + userUri);
+      Uri url = Uri.parse(uri + userUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.put(
         url,
@@ -74,10 +76,13 @@ class CloudService {
     try {
       print('CHECK USER');
       final String userUri = '/store/user/$username';
-      Uri url= Uri.parse(uri + userUri);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      Uri url = Uri.parse(uri + userUri);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
-      http.Response response = await ioClient.get(url, headers: <String, String>{
+      http.Response response =
+          await ioClient.get(url, headers: <String, String>{
         'accept': 'application/json',
         'content-type': 'application/json',
       });
@@ -101,12 +106,14 @@ class CloudService {
 
   //CREATE A NEW USER
   Future<void> createUser(String username) async {
-    try{
+    try {
       print('CREATE USER');
       final String userUri = '/store/user';
-      Uri url= Uri.parse(uri + userUri);
+      Uri url = Uri.parse(uri + userUri);
       final body = {'id_user': username};
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.post(
         url,
@@ -135,9 +142,11 @@ class CloudService {
     try {
       print('GET USER LIST');
       final String userUri = '/store/user';
-      Uri url= Uri.parse(uri + userUri);
+      Uri url = Uri.parse(uri + userUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       http.Response response = await ioClient.get(
         url,
@@ -168,9 +177,11 @@ class CloudService {
     try {
       print('TLP WHITE EVENTS');
       final String eventUri = '/store/event';
-      Uri url= Uri.parse(uri + eventUri);
+      Uri url = Uri.parse(uri + eventUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.get(
         url,
@@ -192,7 +203,6 @@ class CloudService {
       throw Exception;
     }
   }
-  
 
   //GET TLP WHITE EVENTS
   //FILTERED BY DATE
@@ -200,9 +210,11 @@ class CloudService {
     try {
       print('TIMESTAMP FILTERED TLP WHITE EVENTS');
       final String eventUri = '/store/event';
-      Uri url= Uri.parse(uri + eventUri);
+      Uri url = Uri.parse(uri + eventUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.get(
         url,
@@ -232,9 +244,11 @@ class CloudService {
     try {
       print('GET USER EVENT LIST');
       final String eventUri = '/store/user/$userId/event';
-      Uri url= Uri.parse(uri + eventUri);
+      Uri url = Uri.parse(uri + eventUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.get(
         url,
@@ -270,13 +284,15 @@ class CloudService {
   //GET LIST OF USER EVENTS
   //FILTERED BY DATE
   Future<List<String>> getUserEventsDateFilter(
-    String userId, String fromTimestamp) async {
+      String userId, String fromTimestamp) async {
     try {
       print('TIMESTAMP FILTERED GET USER EVENT LIST');
       final String eventUri = '/store/user/$userId/event';
-      Uri url= Uri.parse(uri + eventUri);
+      Uri url = Uri.parse(uri + eventUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.get(
         url,
@@ -287,7 +303,7 @@ class CloudService {
       );
       if (response.statusCode == 200) {
         List<dynamic> object = jsonDecode(response.body);
-        List<String> allEvents= object.map((e) => e.toString()).toList();
+        List<String> allEvents = object.map((e) => e.toString()).toList();
         return allEvents;
       } else {
         throw Exception;
@@ -304,9 +320,11 @@ class CloudService {
     try {
       print('GET SINGLE USER EVENT');
       final String eventUri = '/store/user/$userId/event/$eventId';
-      Uri url= Uri.parse(uri + eventUri);
+      Uri url = Uri.parse(uri + eventUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.get(
         url,
@@ -336,9 +354,11 @@ class CloudService {
     try {
       print('DELETE EVENT');
       final String eventUri = '/store/user/$username/event/$eventId';
-      Uri url= Uri.parse(uri + eventUri);
+      Uri url = Uri.parse(uri + eventUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.delete(
         url,
@@ -361,9 +381,11 @@ class CloudService {
     try {
       print('GET THREAT WEIGHTS');
       final String threatUri = '/threatweights';
-      Uri url= Uri.parse(uri + threatUri);
+      Uri url = Uri.parse(uri + threatUri);
       print(url);
-      HttpClient client = HttpClient()..badCertificateCallback = ((X509Certificate cert, String host, int port) => true);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
       final response = await ioClient.get(
         url,
@@ -376,6 +398,7 @@ class CloudService {
         print('RESPONSE OK');
         //var object = json.decode(response.body);
         List<dynamic> object = jsonDecode(response.body);
+
         return object.map((e) => ThreatWeights.fromJson(e)).toList();
       } else {
         print('FAILURE: STATUS CODE ' + response.statusCode.toString());

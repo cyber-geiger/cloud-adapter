@@ -8,15 +8,14 @@ part of 'threat_weights.dart';
 
 ThreatWeights _$ThreatWeightsFromJson(Map<String, dynamic> json) =>
     ThreatWeights(
-      idThreatweights: json['idThreatweights'] as String?,
-      threatDict: json['threatDict'] == null
+      idThreatweights: json['id_threatweights'] as String?,
+      threatDict: json['threat_dict'] == null
           ? null
-          : ThreatDict.fromJson(json['threatDict'] as Map<String, dynamic>),
-    )..getIdThreatweights = json['getIdThreatweights'] as String?;
+          : ThreatDict.fromJson(json['threat_dict'] as Map<String, dynamic>),
+    );
 
 Map<String, dynamic> _$ThreatWeightsToJson(ThreatWeights instance) =>
     <String, dynamic>{
-      'idThreatweights': instance.idThreatweights,
-      'threatDict': instance.threatDict?.toJson(),
-      'getIdThreatweights': instance.getIdThreatweights,
+      'id_threatweights': instance.idThreatweights,
+      'threat_dict': instance.threatDict?.toJson(),
     };
