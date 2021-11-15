@@ -25,6 +25,6 @@ class ThreatWeights {
   //     this.idThreatweights = idThreatweights;
 
   ThreatDict? get getThreatDict => threatDict;
-  //same question her
+  //same question here
   //set setThreatDict(ThreatDict threatDict) => this.threatDict = threatDict;
 }
