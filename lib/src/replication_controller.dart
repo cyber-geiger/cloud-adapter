@@ -9,4 +9,5 @@ abstract class ReplicationController {
   Future<void> shareNode(String nodePath, String senderUserId, String receiverUserId);
 
   Future<void> createCloudUser(String userId, [String? email, String? access, String? expires, String? name, String? publicKey]);
+
 }

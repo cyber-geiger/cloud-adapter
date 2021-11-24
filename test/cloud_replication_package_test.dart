@@ -27,13 +27,25 @@ void replicationTests() async {
     //storageController = toolboxAPI.GenericController('Cloud-Replication', toolboxAPI.SqliteMapper(dbPath));
     storageController = toolboxAPI.GenericController(
         'Cloud-Replication', toolboxAPI.DummyMapper());
+    ReplicationController rep;
+    rep = ReplicationService();
+    //CREATE 2 CLOUD USERS
+    await rep.createCloudUser("replicationUser1");
+    await rep.createCloudUser("replicationUser2");
+    toolboxAPI.Node node = toolboxAPI.NodeImpl(':keys:replicationUser2');
+    storageController.update(node);
+    node.addOrUpdateValue(toolboxAPI.NodeValueImpl('agreement', 'in'));
+    node.addOrUpdateValue(toolboxAPI.NodeValueImpl('type', 'peer'));
+    storageController.update(node);
+    await rep.pair('replicationUser1', 'replicationUser2');
   });
 
   /// UNPAIR TEST
   test('Unpair Test', () async {
+    //RUN PAIRING TEST BEFORE
     ReplicationController rep;
     rep = ReplicationService();
-    await rep.unpair('informationsharing', 'replicationDemo');
+    await rep.unpair('replicationUser1', 'replicationUser2');
   });
 
   test('Full Replication', () async {

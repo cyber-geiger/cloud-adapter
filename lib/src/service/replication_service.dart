@@ -616,10 +616,10 @@ class ReplicationService implements ReplicationController {
       try {
         List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
         if (agreeUser1.contains(userId2)==false) {
-          await cloud.createMerge(userId1, userId2, agreeType);
+          await cloud.createMerge(userId1, userId2, agreeType, typo);
         }
       } catch (e) {
-        await cloud.createMerge(userId1, userId2, agreeType);
+        await cloud.createMerge(userId1, userId2, agreeType, typo);
       }
 
       /*try {
@@ -746,4 +746,5 @@ class ReplicationService implements ReplicationController {
       throw CloudException('Could not create cloud user with id: $userId');
     }
   }
+
 }
