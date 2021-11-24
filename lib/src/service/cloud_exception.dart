@@ -1,6 +1,6 @@
 import 'dart:io';
 
-class ReplicationException implements IOException {
+class CloudException implements IOException {
 
   final String _message;
   final Exception? _cause;
@@ -14,11 +14,11 @@ class ReplicationException implements IOException {
     return _stackTrace;
   }
 
-  ReplicationException(this._message, [this._cause, this._stackTrace]);
+  CloudException(this._message, [this._cause, this._stackTrace]);
 
   @override
   String toString() {
-    String ret='ReplicationException: $_message';
+    String ret='CloudException: $_message';
     if(_cause!=null) {
       ret += '\nnested cause:\n${_cause.toString()}';
     }

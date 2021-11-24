@@ -6,19 +6,42 @@ import 'package:cloud_replication_package/src/cloud_models/event.dart';
 import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:cloud_replication_package/src/service/cloud_service.dart';
 import 'package:cloud_replication_package/src/service/replication_service.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:geiger_localstorage/geiger_localstorage.dart' as toolboxAPI;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:intl/intl.dart';
 import 'package:test/test.dart';
 
+
+
 void replicationTests() async {
+
+  late toolboxAPI.StorageController storageController;
   final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
+
+  /// PAIR TEST
+  test('Pairing Test', () async {
+    WidgetsFlutterBinding.ensureInitialized();
+    //String dbPath = join(await getDatabasesPath(), './dbFileName.sqlite');
+    //storageController = toolboxAPI.GenericController('Cloud-Replication', toolboxAPI.SqliteMapper(dbPath));
+    storageController = toolboxAPI.GenericController(
+        'Cloud-Replication', toolboxAPI.DummyMapper());
+  });
+
+  /// UNPAIR TEST
+  test('Unpair Test', () async {
+    ReplicationController rep;
+    rep = ReplicationService();
+    await rep.unpair('informationsharing', 'replicationDemo');
+  });
+
   test('Full Replication', () async {
     ReplicationController rep;
     rep = ReplicationService();
     await rep.geigerReplication();
   });
-
+  
   /// CLOUD SERVICE TESTS
   /// TEST OF EACH METHOD
   test('create Event', () async {
