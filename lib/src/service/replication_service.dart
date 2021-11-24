@@ -112,26 +112,31 @@ class ReplicationService implements ReplicationController {
       String type = singleOne.type.toString();
       String tlp = singleOne.tlp.toString();
       String id = singleOne.id_event.toString();
-      if (type.toLowerCase() == "keyvalue") {
-        print('NO E2EE');
-        updateSingleNodeCloud2Device(singleOne);
-      }
-      if (type.toLowerCase() == "keyvalue") {
-        print('E2EE');
-        //GET KEYS
-        try {
-          toolboxAPI.Node keys = getNode(':$id:local');
-          final keyVal = Enc.Key.fromUtf8(keys.getValue('key').toString());
-          final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
-          final iv = Enc.IV.fromLength(32);
-          //DECRYPT DATA
-          String decrypted = enc
-              .decrypt(singleOne.content.toString() as Enc.Encrypted, iv: iv);
-          singleOne.setContent = decrypted.toString();
+      String? owner = singleOne.owner.toString();
+      if (owner != null && owner != _username) {
+        if (type.toLowerCase() == "keyvalue") {
+          print('NO E2EE');
           updateSingleNodeCloud2Device(singleOne);
-        } catch (e) {
-          toolboxAPI.StorageException('FAILURE GETTING KEYS');
         }
+        if (type.toLowerCase() == "keyvalue") {
+          print('E2EE');
+          //GET KEYS
+          try {
+            toolboxAPI.Node keys = getNode(':Keys:$id');
+            final keyVal = Enc.Key.fromUtf8(keys.getValue('key').toString());
+            final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
+            final iv = Enc.IV.fromLength(32);
+            //DECRYPT DATA
+            String decrypted = enc
+                .decrypt(singleOne.content.toString() as Enc.Encrypted, iv: iv);
+            singleOne.setContent = decrypted.toString();
+            updateSingleNodeCloud2Device(singleOne);
+          } catch (e) {
+            toolboxAPI.StorageException('FAILURE GETTING KEYS');
+          }
+        }
+      } else {
+        await updatePairedEvent(_username, singleOne);
       }
     }
 
@@ -211,7 +216,7 @@ class ReplicationService implements ReplicationController {
         Event toCheck = Event(id_event: identifier, tlp: tlp.toUpperCase());
         if (tlp.toLowerCase() == 'red') {
           try {
-            toolboxAPI.Node keys = getNode(':$identifier:local');
+            toolboxAPI.Node keys = getNode(':Keys:$identifier');
             final keyVal = Enc.Key.fromUtf8(keys.getValue('key').toString());
             final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
             final iv = Enc.IV.fromLength(32);
@@ -816,5 +821,64 @@ class ReplicationService implements ReplicationController {
       consent = true;
     }
     return consent;
+  }
+
+  /// if a user receives shared event but with different owner
+  /// checks pairing
+  Future<void> updatePairedEvent(String username, Event event) async {
+    try {
+      String owner = event.owner.toString();
+      toolboxAPI.Node node = getNode(':key_$owner');
+      String encryptedKey = node.getValue('key').toString();
+      String agreeValue = node.getValue('agreement').toString();
+      if (agreeValue=='in' || agreeValue == 'both') {
+        try {
+          List<String> agreements = await cloud.getMergedAccounts(username);
+          if (agreements.contains(owner)==true) {
+            /// check if our user has publicKey
+            /// else the key will be clear
+            User actualUser = await cloud.getUser(username);
+            var publicKey = actualUser.getPublicKey;
+            if (publicKey != null) {
+              publicKey = publicKey.toString();
+
+              final keyVal = Enc.Key.fromUtf8(publicKey);
+              final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
+              final iv = Enc.IV.fromLength(32);
+              //DECRYPT DATA
+              encryptedKey = enc
+                  .decrypt(encryptedKey as Enc.Encrypted, iv: iv);
+            }
+
+            /// DECRYPT CONTENT AND SET NEW NODE
+            final keyVal1 = Enc.Key.fromUtf8(encryptedKey);
+            final enc1 = Enc.Encrypter(Enc.AES(keyVal1, mode: Enc.AESMode.cbc));
+            final iv1 = Enc.IV.fromLength(32);
+            //DECRYPT DATA
+            var data = enc1
+                .decrypt(event.content.toString() as Enc.Encrypted, iv: iv1);
+
+            /// CREATE NODE
+            toolboxAPI.Node newSharedNode = toolboxAPI.NodeImpl(event.id_event.toString());
+            newSharedNode.setOwner(owner);
+            toolboxAPI.Visibility? visible = toolboxAPI.VisibilityExtension.valueOf(event.getTlp.toString());
+            newSharedNode.setVisibility(visible!);
+            //LOOP ALL ELEMENTS
+            storageController.update(newSharedNode);
+            Map<dynamic, dynamic> mapper = jsonDecode(data);
+            mapper.forEach((key, value) {
+              newSharedNode
+                  .addOrUpdateValue(toolboxAPI.NodeValueImpl(key, value.toString()));
+            });
+            storageController.update(newSharedNode);
+            
+          }
+        } catch (e) {
+          throw CloudException('There is no active cloud agreement');
+        }
+      }
+    } catch (e) {
+      throw toolboxAPI.StorageException('No pairing node set up');
+    }
   }
 }
