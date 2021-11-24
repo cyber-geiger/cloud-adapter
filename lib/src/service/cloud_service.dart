@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cloud_replication_package/src/service/cloud_exception.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -314,6 +315,35 @@ class CloudService {
     } catch (e) {
       print(e);
       return false;
+    }
+  }
+
+  //CHECK IF A USER EXIST
+  Future<User> getUser(String username) async {
+    try {
+      print('CHECK USER');
+      final String userUri = '/store/user/$username';
+      Uri url = Uri.parse(uri + userUri);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
+      var ioClient = IOClient(client);
+      http.Response response =
+          await ioClient.get(url, headers: <String, String>{
+        'accept': 'application/json',
+        'content-type': 'application/json',
+      });
+      if (response.statusCode == 200) {
+        print('USER EXISTS');
+        var object = jsonDecode(response.body);
+        return User.fromJson(object);
+      } else {
+        print(response.statusCode.toString());
+        throw Exception;
+      }
+    } catch (e) {
+      print(e);
+      throw CloudException('This should not happen');
     }
   }
 

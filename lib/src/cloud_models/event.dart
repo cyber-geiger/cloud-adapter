@@ -5,8 +5,8 @@ part 'event.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Event {
-  String? id_event;
-  String? tlp;
+  String id_event;
+  String tlp;
   String? type;
   String? encoding;
   List<String>? tags;

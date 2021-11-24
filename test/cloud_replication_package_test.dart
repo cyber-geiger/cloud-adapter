@@ -37,7 +37,7 @@ void replicationTests() async {
     node.addOrUpdateValue(toolboxAPI.NodeValueImpl('agreement', 'in'));
     node.addOrUpdateValue(toolboxAPI.NodeValueImpl('type', 'peer'));
     storageController.update(node);
-    await rep.pair('replicationUser1', 'replicationUser2');
+    await rep.setPair('replicationUser1', 'replicationUser2');
   });
 
   /// UNPAIR TEST

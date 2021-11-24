@@ -3,6 +3,7 @@ library geiger_replication;
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:cloud_replication_package/src/replication_exception.dart';
 import 'package:cloud_replication_package/src/service/cloud_exception.dart';
 import 'package:http/http.dart' as http;
@@ -52,13 +53,13 @@ class ReplicationService implements ReplicationController {
     /// :Replication:LastReplication
     DateTime _actual = DateTime.now();
     bool _fullRep;
-    // 180 -> Default expiring date
+    /// 180 -> Default expiring date
     DateTime _fromDate = _actual.subtract(Duration(days: 180));
     print('[1st FLOW] - TIMESTAMP CHECKER');
     try {
       toolboxAPI.Node timeChecker = getNode(':Replication:LastReplication');
       DateTime _lastTimestamp =
-          DateTime.parse(timeChecker.getValue('timestamp').toString());
+          DateTime.parse(timeChecker.getValue('lastModified').toString());
       Duration _diff = _actual.difference(_lastTimestamp);
       if (_diff.inDays > 30) {
         /// FULL REPLICATION TAKES PLACE
@@ -70,7 +71,6 @@ class ReplicationService implements ReplicationController {
       }
     } catch (e) {
       print('NO REPLICATION NODE - NO REPLICATION HAS BEEN DONE');
-
       /// FULL REPLICATION TAKES PLACE
       _fullRep = true;
     }
@@ -82,7 +82,6 @@ class ReplicationService implements ReplicationController {
       String _localUser =
           local.getValue('currentUser')!.getValue("en").toString();
       _username = _localUser;
-      print(_username);
       //CHECK IF USER ALREADY IN CLOUD & IF NOT, CREATE ONE
       bool exists = await cloud.userExists(_username.toString());
       print(exists.toString());
@@ -263,6 +262,251 @@ class ReplicationService implements ReplicationController {
     //}
   }
 
+  @override
+  Future<void> setPair(String userId1, String userId2) async {
+    /// stores merge agreement in the cloud
+    /// checks if local node exists
+    /// checks if cloud users exist
+    /// checks if already merged
+    /// userId1 - local user
+    /// userId2 - peer partner
+    try {
+      toolboxAPI.Node agreement = getNode(':key:$userId2');
+      String agreeType = agreement.getValue('agreement').toString();
+      String typo = agreement.getValue('type').toString();
+      
+      /*String complementary;
+      if (agreeType == 'in') {
+        complementary = 'out';
+      } else if (agreeType == 'both') {
+        complementary = 'out';
+      } else if(agreeType == 'out') {
+        complementary = 'out';
+      } else {
+        throw ReplicationException('No agreement valid type defined');
+      }*/
+
+      /// check cloud users
+      bool user1Exists = await cloud.userExists(userId1);
+      if (user1Exists == false) {
+        cloud.createUser(userId1);
+      }
+      /*bool user2Exists = await cloud.userExists(userId2);
+      if (user2Exists == false) {
+        cloud.createUser(userId2);
+      }*/
+
+      /// check if mutual merge exists
+      /// if one user agrees in - the other must agree out and vice versa
+      /// if agree both - the other must agree both
+      /// check userId1 agreements
+      try {
+        List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
+        if (agreeUser1.contains(userId2)==false) {
+          await cloud.createMerge(userId1, userId2, agreeType, typo);
+        }
+      } catch (e) {
+        await cloud.createMerge(userId1, userId2, agreeType, typo);
+      }
+
+      /*try {
+        List<String> agreeUser2 = await cloud.getMergedAccounts(userId2);
+        if (agreeUser2.contains(userId1)==false) {
+          await cloud.createMerge(userId2, userId1, complementary);
+        }
+      } catch (e) {
+        await cloud.createMerge(userId2, userId1, complementary);
+      }*/
+    } catch (e) {
+      print(e);
+      throw toolboxAPI.StorageException('PAIRING NODE NOT FOUND');
+    } 
+  }
+
+  @override
+  Future<void> unpair(String userId1, String userId2) async {
+    /// deletes local node exists
+    /// deletes merge agreement in the cloud
+    /// checks if cloud users exist
+    /// checks if already merged
+    /// userId1 - local user
+    /// userId2 - peer partner
+    /// if paired - remove 2 pairs
+   
+    /// check cloud users
+    bool user1Exists = await cloud.userExists(userId1);
+    if (user1Exists == false) {
+      throw ReplicationException('$userId1 does not exist in cloud. No unpair is possible.');
+    }
+    /*bool user2Exists = await cloud.userExists(userId2);
+    if (user2Exists == false) {
+      throw ReplicationException('$userId2 does not exist in cloud. No unpair is possible.');
+    }*/
+
+    /// check userId1 agreements
+    try {
+      List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
+      if (agreeUser1.contains(userId2)==true) {
+        try {
+          await cloud.deleteMerged(userId1, userId2);
+        } catch (e) {
+          throw ReplicationException('Cloud Exception: ' + e.toString());
+        }
+      } else {
+        throw ReplicationException('No active agreement between $userId1 and $userId2');
+      }
+    } catch (e) {
+      throw ReplicationException('No active agreements set for $userId1');
+    }
+
+    /// check userId2 agreements
+    /*try {
+      List<String> agreeUser2 = await cloud.getMergedAccounts(userId2);
+      if (agreeUser2.contains(userId1)==true) {
+        try {
+          await cloud.deleteMerged(userId2, userId1);
+        } catch (e) {
+          throw ReplicationException('Cloud Exception: ' + e.toString());
+        }
+      } else {
+        throw ReplicationException('No active agreement between $userId2 and $userId1');
+      }
+    } catch (e) {
+      throw ReplicationException('No active agreements set for $userId2');
+    }*/
+  }
+
+  @override
+  Future<void> shareNode(String nodePath, String senderUserId, String receiverUserId) async {
+    /// check local pairing
+    /// check cloud pairing
+    /// get key
+    /// create cloud event e2ee (if public key - else no e2ee)
+    /// post event
+    try {
+      toolboxAPI.Node node = getNode(':key_$receiverUserId');
+      String encryptedKey = node.getValue('key').toString();
+      String agreeValue = node.getValue('agreement').toString();
+      if (agreeValue=='out' || agreeValue == 'both') {
+        try {
+          List<String> agreements = await cloud.getMergedAccounts(senderUserId);
+          if (agreements.contains(receiverUserId)==true) {
+            ShortUser data = await cloud.getMergedInfo(senderUserId, receiverUserId);
+            String? publicKey = data.getPublicKey;
+            if (publicKey != null) {
+              // need to decrypt the encryptedKey
+              final keyVal = Enc.Key.fromUtf8(publicKey);
+              final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
+              final iv = Enc.IV.fromLength(32);
+              //DECRYPT DATA
+              encryptedKey = enc
+                  .decrypt(encryptedKey as Enc.Encrypted, iv: iv);
+            }
+            // node to send
+            toolboxAPI.Node toShareNode = getNode(nodePath);
+
+            Event toPostEvent = Event(id_event: toShareNode.getName().toString(), tlp: toShareNode.getVisibility().toString());
+            toPostEvent.setOwner = senderUserId;
+            toPostEvent.setType = 'user';
+
+            //EncryptNode
+            final keyVal = Enc.Key.fromUtf8(encryptedKey);
+            final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
+            final iv = Enc.IV.fromLength(32);
+            Enc.Encrypted encrypted = enc.encrypt(toShareNode.toString(), iv: iv);
+            toPostEvent.setContent = encrypted.toString();
+            await cloud.createEvent(senderUserId, toPostEvent);
+          } else {
+            throw CloudException('There is no active cloud agreement');
+          }
+        } catch (e) {
+          throw CloudException('There is no active cloud agreement');
+        }
+      }
+    } catch (e) {
+      throw toolboxAPI.StorageException('Key Node not found');
+    }
+  }
+
+  @override
+  Future<void> getSharedNodes(String receiverUserId, String senderUserId) async {
+    /// get receiverNodes 
+    /// cloud API retrieves also the shared ones
+    /// check the Event owner to differenciate
+    try {
+      toolboxAPI.Node node = getNode(':key_$senderUserId');
+      String encryptedKey = node.getValue('key').toString();
+      String agreeValue = node.getValue('agreement').toString();
+      if (agreeValue=='in' || agreeValue == 'both') {
+        try {
+          List<String> agreements = await cloud.getMergedAccounts(senderUserId);
+          if (agreements.contains(receiverUserId)==true) {
+            /// check if our user has publicKey
+            /// else the key will be clear
+            User actualUser = await cloud.getUser(receiverUserId);
+            var publicKey = actualUser.getPublicKey;
+            if (publicKey != null) {
+              publicKey = publicKey.toString();
+
+              final keyVal = Enc.Key.fromUtf8(publicKey);
+              final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
+              final iv = Enc.IV.fromLength(32);
+              //DECRYPT DATA
+              encryptedKey = enc
+                  .decrypt(encryptedKey as Enc.Encrypted, iv: iv);
+            }
+
+            /// get user nodes
+            List<String> allEvents = await cloud.getUserEvents(receiverUserId);
+            for (var event in allEvents) {
+              Event newEvent = await cloud.getSingleUserEvent(receiverUserId, event);
+              var owner = newEvent.getOwner;
+              if (owner != null) {
+                owner = owner.toString();
+                if (owner == senderUserId) {
+                  /// DECRYPT CONTENT AND SET NEW NODE
+                  final keyVal1 = Enc.Key.fromUtf8(encryptedKey);
+                  final enc1 = Enc.Encrypter(Enc.AES(keyVal1, mode: Enc.AESMode.cbc));
+                  final iv1 = Enc.IV.fromLength(32);
+                  //DECRYPT DATA
+                  var data = enc1
+                      .decrypt(newEvent.content.toString() as Enc.Encrypted, iv: iv1);
+
+                  /// CREATE NODE
+                  toolboxAPI.Node newSharedNode = toolboxAPI.NodeImpl(newEvent.id_event.toString());
+                  newSharedNode.setOwner(senderUserId);
+                  toolboxAPI.Visibility? visible = toolboxAPI.VisibilityExtension.valueOf(newEvent.getTlp.toString());
+                  newSharedNode.setVisibility(visible!);
+                  //LOOP ALL ELEMENTS
+                  storageController.update(newSharedNode);
+                  Map<dynamic, dynamic> mapper = jsonDecode(data);
+                  mapper.forEach((key, value) {
+                    newSharedNode
+                        .addOrUpdateValue(toolboxAPI.NodeValueImpl(key, value.toString()));
+                  });
+                  storageController.update(newSharedNode);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          throw CloudException('There is no active cloud agreement');
+        }
+      }
+    } catch (e) {
+      throw toolboxAPI.StorageException('Key Node not found');
+    }
+  }
+
+  @override 
+  Future<void> createCloudUser(String userId, [String? email, String? access, String? expires, String? name, String? publicKey]) async {
+    try {
+      await cloud.createUser(userId.toString());
+    } catch (e) {
+      throw CloudException('Could not create cloud user with id: $userId');
+    }
+  }
+
   /// UTILS
   /// IN THIS SECTION ARE REPETITIVE TASKS
   /// AVOID DUPLICATION CODE
@@ -390,50 +634,6 @@ class ReplicationService implements ReplicationController {
     }
   }
 
-  void cleanData(DateTime actual) {
-    print('REMOVE DATA - 180 DAYS LIMIT');
-
-    /// COMPLETE
-    /// RECURSIVE WAY
-    /// CHECK TIMESTAMP > 180 DAYS: DELETE
-    List<toolboxAPI.Node> checkingData = getAllNodes();
-
-    /// SORT NODES BY TIMESTAMP
-    checkingData.sort((a, b) => a
-        .getValue('lastModified')
-        .toString()
-        .compareTo(b.getValue('lastModified').toString()));
-    for (var node in checkingData) {
-      DateTime nodeTime = DateTime.parse(node.getValue('lastModified').toString());
-      Duration checker = actual.difference(nodeTime);
-      if (checker.inDays > 180) {
-        //REPLICATION TIMING STRATEGIES - DELETE NODE
-        String path = node.getPath().toString();
-        storageController.delete(path);
-        print('NODE WITH PATH $path HAS BEEN REMOVED');
-      }
-    }
-  }
-
-  List<toolboxAPI.Node> getAllNodes() {
-    List<toolboxAPI.Node> nodeList = [];
-    try {
-      toolboxAPI.Node root = getNode('');
-      getRecursiveNodes(root, nodeList);
-    } catch (e) {
-      print('Exception');
-    }
-    return nodeList;
-  }
-
-  void getRecursiveNodes(toolboxAPI.Node node, List<toolboxAPI.Node> list) {
-    list.add(node);
-    Map<String, toolboxAPI.Node> children = node.getChildren();
-    children.forEach((key, value) {
-      getRecursiveNodes(value, list);
-    });
-  }
-
   void storageListenerReplication(String _username) async {
     ///ALL ABOUT LISTENER
     var listener = NodeListener();
@@ -548,6 +748,50 @@ class ReplicationService implements ReplicationController {
     }
   }
 
+  List<toolboxAPI.Node> getAllNodes() {
+    List<toolboxAPI.Node> nodeList = [];
+    try {
+      toolboxAPI.Node root = getNode('');
+      getRecursiveNodes(root, nodeList);
+    } catch (e) {
+      print('Exception');
+    }
+    return nodeList;
+  }
+
+  void getRecursiveNodes(toolboxAPI.Node node, List<toolboxAPI.Node> list) {
+    list.add(node);
+    Map<String, toolboxAPI.Node> children = node.getChildren();
+    children.forEach((key, value) {
+      getRecursiveNodes(value, list);
+    });
+  }
+
+  void cleanData(DateTime actual) {
+    print('REMOVE DATA - 180 DAYS LIMIT');
+
+    /// COMPLETE
+    /// RECURSIVE WAY
+    /// CHECK TIMESTAMP > 180 DAYS: DELETE
+    List<toolboxAPI.Node> checkingData = getAllNodes();
+
+    /// SORT NODES BY TIMESTAMP
+    checkingData.sort((a, b) => a
+        .getValue('lastModified')
+        .toString()
+        .compareTo(b.getValue('lastModified').toString()));
+    for (var node in checkingData) {
+      DateTime nodeTime = DateTime.parse(node.getValue('lastModified').toString());
+      Duration checker = actual.difference(nodeTime);
+      if (checker.inDays > 180) {
+        //REPLICATION TIMING STRATEGIES - DELETE NODE
+        String path = node.getPath().toString();
+        storageController.delete(path);
+        print('NODE WITH PATH $path HAS BEEN REMOVED');
+      }
+    }
+  }
+
   bool checkConsent(toolboxAPI.Node node, String username) {
     bool consent = false;
     String tlp = node.getValue('Visibility').toString();
@@ -558,7 +802,7 @@ class ReplicationService implements ReplicationController {
       try {
         //IF GET NODE - USER HAS NOT AGREED FOREVER - CONSENT FALSE
         toolboxAPI.Node consentNode = getNode(':Consent:$username');
-        consent = false;
+        consent = true;
       } catch (e) {
         //No consent set.
         print('NEED TO ASK CONSENT');
@@ -566,7 +810,6 @@ class ReplicationService implements ReplicationController {
         //IF USER AGREE ONCE - Consent true & TLP RED - UPDATE NODE
         //IF USER NOT AGREE FOREVER - Consent false CREATE CONSENT
         //USER DOES NOT AGREE ONCE - Consent false & SET TLP RED - UPDATE NODE
-
         //UNTIL CONSENT CLEAR - TRUE
         consent = true;
       }
@@ -574,177 +817,4 @@ class ReplicationService implements ReplicationController {
     }
     return consent;
   }
-
-  @override
-  Future<void> pair(String userId1, String userId2) async {
-    /// stores merge agreement in the cloud
-    /// checks if local node exists
-    /// checks if cloud users exist
-    /// checks if already merged
-    /// userId1 - local user
-    /// userId2 - peer partner
-    try {
-      toolboxAPI.Node agreement = getNode(':key:$userId2');
-      String agreeType = agreement.getValue('agreement').toString();
-      String typo = agreement.getValue('type').toString();
-      
-      /*String complementary;
-      if (agreeType == 'in') {
-        complementary = 'out';
-      } else if (agreeType == 'both') {
-        complementary = 'out';
-      } else if(agreeType == 'out') {
-        complementary = 'out';
-      } else {
-        throw ReplicationException('No agreement valid type defined');
-      }*/
-
-      /// check cloud users
-      bool user1Exists = await cloud.userExists(userId1);
-      if (user1Exists == false) {
-        cloud.createUser(userId1);
-      }
-      /*bool user2Exists = await cloud.userExists(userId2);
-      if (user2Exists == false) {
-        cloud.createUser(userId2);
-      }*/
-
-      /// check if mutual merge exists
-      /// if one user agrees in - the other must agree out and vice versa
-      /// if agree both - the other must agree both
-      /// check userId1 agreements
-      try {
-        List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
-        if (agreeUser1.contains(userId2)==false) {
-          await cloud.createMerge(userId1, userId2, agreeType, typo);
-        }
-      } catch (e) {
-        await cloud.createMerge(userId1, userId2, agreeType, typo);
-      }
-
-      /*try {
-        List<String> agreeUser2 = await cloud.getMergedAccounts(userId2);
-        if (agreeUser2.contains(userId1)==false) {
-          await cloud.createMerge(userId2, userId1, complementary);
-        }
-      } catch (e) {
-        await cloud.createMerge(userId2, userId1, complementary);
-      }*/
-    } catch (e) {
-      print(e);
-      throw toolboxAPI.StorageException('PAIRING NODE NOT FOUND');
-    } 
-  }
-
-  @override
-  Future<void> unpair(String userId1, String userId2) async {
-    /// deletes local node exists
-    /// deletes merge agreement in the cloud
-    /// checks if cloud users exist
-    /// checks if already merged
-    /// userId1 - local user
-    /// userId2 - peer partner
-    /// if paired - remove 2 pairs
-   
-    /// check cloud users
-    bool user1Exists = await cloud.userExists(userId1);
-    if (user1Exists == false) {
-      throw ReplicationException('$userId1 does not exist in cloud. No unpair is possible.');
-    }
-    /*bool user2Exists = await cloud.userExists(userId2);
-    if (user2Exists == false) {
-      throw ReplicationException('$userId2 does not exist in cloud. No unpair is possible.');
-    }*/
-
-    /// check userId1 agreements
-    try {
-      List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
-      if (agreeUser1.contains(userId2)==true) {
-        try {
-          await cloud.deleteMerged(userId1, userId2);
-        } catch (e) {
-          throw ReplicationException('Cloud Exception: ' + e.toString());
-        }
-      } else {
-        throw ReplicationException('No active agreement between $userId1 and $userId2');
-      }
-    } catch (e) {
-      throw ReplicationException('No active agreements set for $userId1');
-    }
-
-    /// check userId2 agreements
-    /*try {
-      List<String> agreeUser2 = await cloud.getMergedAccounts(userId2);
-      if (agreeUser2.contains(userId1)==true) {
-        try {
-          await cloud.deleteMerged(userId2, userId1);
-        } catch (e) {
-          throw ReplicationException('Cloud Exception: ' + e.toString());
-        }
-      } else {
-        throw ReplicationException('No active agreement between $userId2 and $userId1');
-      }
-    } catch (e) {
-      throw ReplicationException('No active agreements set for $userId2');
-    }*/
-  }
-
-  @override
-  Future<void> shareNode(String nodePath, String senderUserId, String receiverUserId) async {
-    /// check local pairing
-    /// check cloud pairing
-    /// get key
-    /// create cloud event e2ee (if public key - else no e2ee)
-    /// post event
-    try {
-      toolboxAPI.Node node = getNode(':key_$receiverUserId');
-      String encryptedKey = node.getValue('key').toString();
-      try {
-        List<String> agreements = await cloud.getMergedAccounts(senderUserId);
-        if (agreements.contains(receiverUserId)==true) {
-          ShortUser data = await cloud.getMergedInfo(senderUserId, receiverUserId);
-          String? publicKey = data.getPublicKey;
-          if (publicKey != null) {
-            // need to decrypt the encryptedKey
-            final keyVal = Enc.Key.fromUtf8(publicKey);
-            final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
-            final iv = Enc.IV.fromLength(32);
-            //DECRYPT DATA
-            encryptedKey = enc
-                .decrypt(encryptedKey as Enc.Encrypted, iv: iv);
-          }
-          // node to send
-          toolboxAPI.Node toShareNode = getNode(nodePath);
-
-          Event toPostEvent = Event(id_event: toShareNode.getName().toString(), tlp: toShareNode.getVisibility().toString());
-          toPostEvent.setOwner = senderUserId;
-          toPostEvent.setType = 'user';
-
-          //EncryptNode
-          final keyVal = Enc.Key.fromUtf8(encryptedKey);
-          final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
-          final iv = Enc.IV.fromLength(32);
-          Enc.Encrypted encrypted = enc.encrypt(toShareNode.toString(), iv: iv);
-          toPostEvent.setContent = encrypted.toString();
-          await cloud.createEvent(senderUserId, toPostEvent);
-        } else {
-          throw CloudException('There is no active cloud agreement');
-        }
-      } catch (e) {
-        throw CloudException('There is no active cloud agreement');
-      }
-    } catch (e) {
-      throw toolboxAPI.StorageException('Key Node not found');
-    }
-  }
-
-  @override 
-  Future<void> createCloudUser(String userId, [String? email, String? access, String? expires, String? name, String? publicKey]) async {
-    try {
-      await cloud.createUser(userId.toString());
-    } catch (e) {
-      throw CloudException('Could not create cloud user with id: $userId');
-    }
-  }
-
 }
