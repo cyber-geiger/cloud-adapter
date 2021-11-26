@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_replication_package/src/service/cloud_exception.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -605,5 +606,14 @@ class CloudService {
       print(e);
       throw Exception;
     }
+  }
+
+
+  /// *******************
+  /// CLOUD UTILS METHODS
+  /// *******************
+  List<Event> parseEvent(String responseBody) {
+    final parsed = jsonDecode(responseBody).cast<Map<String, dynamic>>();
+    return parsed.map<Event>((e) => Event.fromJson(e)).toList();
   }
 }
