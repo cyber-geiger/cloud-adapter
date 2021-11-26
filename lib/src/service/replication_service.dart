@@ -15,8 +15,8 @@ import 'package:cloud_replication_package/src/service/cloud_service.dart';
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolboxAPI;
 
 import 'package:logging/logging.dart';
-import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
+
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:encrypt/encrypt.dart' as Enc;
 import 'package:flutter/cupertino.dart';
 import 'package:crypto/crypto.dart';
@@ -535,13 +535,15 @@ class ReplicationService implements ReplicationController {
   /// AVOID DUPLICATION CODE
 
   /* INIT */
+  @override
   Future<void> initGeigerStorage() async {
     print('INIT GEIGER STORAGE');
     WidgetsFlutterBinding.ensureInitialized();
-    //String dbPath = join(await getDatabasesPath(), './dbFileName.sqlite');
-    //storageController = toolboxAPI.GenericController('Cloud-Replication', toolboxAPI.SqliteMapper(dbPath));
-    storageController = toolboxAPI.GenericController(
-        'Cloud-Replication', toolboxAPI.DummyMapper('Cloud-Replication'));
+    
+    await toolboxAPI.StorageMapper.initDatabaseExpander();
+    storageController = toolboxAPI.GenericController('Cloud-Replication', toolboxAPI.SqliteMapper('dbFileName.bd'));
+    //storageController = toolboxAPI.GenericController(
+        //'Cloud-Replication', toolboxAPI.DummyMapper('Cloud-Replication'));
     print('INIT GEIGER END');
   }
 
@@ -655,20 +657,20 @@ class ReplicationService implements ReplicationController {
     }
   }
 
-  /*void storageListenerReplication(String _username) async {
+  void storageListenerReplication(String _username) async {
     ///ALL ABOUT LISTENER
     var listener = NodeListener();
     var sc = toolboxAPI.SearchCriteria();
     storageController.registerChangeListener(listener, sc);
 
-    toolboxAPI.Node node = listener.newnode;
-    toolboxAPI.Node oldNode = listener.oldnode;
+    toolboxAPI.Node node = await listener.newnode;
+    toolboxAPI.Node oldNode = await listener.oldnode;
 
     String eventType = '';
 
     // If 'delete' check directly with the cloud
     if (eventType.toString() == 'delete') {
-      String eventId = node.getName().toString();
+      String eventId = node.name.toString();
       try {
         Event checker = await cloud.getSingleUserEvent(_username, eventId);
         //IF EVENT RETRIEVED IS BECAUSE EXISTS -> DELETE
@@ -689,9 +691,9 @@ class ReplicationService implements ReplicationController {
         //IF TRUE - CONTINUE - ELSE - END
         bool consent = await checkConsent(node, _username);
         if (consent == true) {
-          String nodeName = node.getName().toString();
+          String nodeName = node.name.toString();
           Event toCloudEvent = Event(id_event: nodeName, tlp: tlp);
-          toCloudEvent.setOwner = node.getOwner.toString();
+          toCloudEvent.owner = node.owner.toString();
           if (tlp.toLowerCase() == 'red') {
             //GET KEYS
             try {
@@ -725,7 +727,7 @@ class ReplicationService implements ReplicationController {
               //CHECK PREVIOUS ONE
               try {
                 Event oldChecker = await cloud.getSingleUserEvent(
-                    _username, oldNode.getName().toString());
+                    _username, oldNode.name.toString());
                 //IF EXISTED - DELETE
                 //THEN - CREATE
                 cloud.deleteEvent(_username, oldChecker.id_event.toString());
@@ -750,7 +752,7 @@ class ReplicationService implements ReplicationController {
               //CHECK PREVIOUS ONE
               try {
                 Event oldChecker = await cloud.getSingleUserEvent(
-                    _username, oldNode.getName().toString());
+                    _username, oldNode.name.toString());
                 //IF EXISTED - DELETE
                 //THEN - CREATE
                 cloud.deleteEvent(_username, oldChecker.id_event.toString());
@@ -767,7 +769,7 @@ class ReplicationService implements ReplicationController {
         }
       }
     }
-  }*/
+  }
 
   Future<List<toolboxAPI.Node>> getAllNodes() async {
     List<toolboxAPI.Node> nodeList = [];

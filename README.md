@@ -11,29 +11,24 @@ and the Flutter guide for
 [developing packages and plugins](https://flutter.dev/developing-packages). 
 -->
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+# GEIGER Replication
 
-## Features
+This repository contains the implementation for the replication and pairing process used in the GEIGER project in dart.
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+## GEIGER Project
+
+The GEIGER project aims to create a solution for small businesses to protect themselves against cyber threats by constructing an application that calculates a threat score of the current device.
+
+More information can be found under [https://project.cyber-geiger.eu/(https://project.cyber-geiger.eu/).
 
 ## Getting started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+Create a controller to start the replication or the pairing available methods.
 
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder. 
-
-```dart
-const like = 'sample';
+```Dart
+ReplicationController controller = ReplicationService();
 ```
 
 ## Additional information
 
-TODO: Tell users more about the package: where to find more information, how to 
-contribute to the package, how to file issues, what response they can expect 
-from the package authors, and more.
+All information regarding GEIGER Cloud implementation, replication strategies and algorithms applied is available in the Wiki of the repository.

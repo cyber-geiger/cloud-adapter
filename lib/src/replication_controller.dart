@@ -1,5 +1,7 @@
 abstract class ReplicationController {
   
+  Future<void> initGeigerStorage(); 
+  
   Future<void> geigerReplication();
 
   Future<void> setPair(String userId1, String userId2);
