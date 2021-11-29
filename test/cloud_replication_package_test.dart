@@ -51,8 +51,9 @@ void replicationTests() async {
   test('Full Replication', () async {
     ReplicationController rep;
     rep = ReplicationService();
+    await rep.initGeigerStorage();
     await rep.geigerReplication();
-  });
+  }, timeout: Timeout(Duration(minutes: 5)));
   
   /// CLOUD SERVICE TESTS
   /// TEST OF EACH METHOD
