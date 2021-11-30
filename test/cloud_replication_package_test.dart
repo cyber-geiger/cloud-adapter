@@ -66,7 +66,7 @@ void replicationTests() async {
     final cloud = CloudService();
     bool response =
         await cloud.userExists('0425e093-502a-4bcf-a5c4-74ec77d77199');
-    expect(response is bool, true);
+    print(response);
   });
   test('create User', () async {
     var cloud = CloudService();
@@ -81,7 +81,6 @@ void replicationTests() async {
     var cloud = CloudService();
     List<Event> response = await cloud.getTLPWhiteEvents();
     print(response);
-    expect(response is List, true);
   }, timeout: Timeout(Duration(minutes: 5)));
 
   test('get TLP White Events - DateTime Filtered', () async {
@@ -97,7 +96,6 @@ void replicationTests() async {
     var cloud = CloudService();
     List<String> response = await cloud.getUserEvents('anyRandomUserId');
     print(response);
-    expect(response is List, true);
   });
   test('get User Events - DateTime Filtered', () async {
     var cloud = CloudService();
@@ -123,7 +121,7 @@ void replicationTests() async {
   test('get Threat Weights', () async {
     var cloud = CloudService();
     List<ThreatWeights> response = await cloud.getThreatWeights();
-    expect(response is List, true, reason: 'Should return a list');
+    print(response.length);
   });
 }
 
