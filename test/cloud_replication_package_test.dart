@@ -90,7 +90,6 @@ void replicationTests() async {
     var response =
         await cloud.getTLPWhiteEventsDateFilter(formatted.toString());
     print(response);
-    expect(response is List, true);
   }, timeout: Timeout(Duration(minutes: 5)));
   test('get User Events', () async {
     var cloud = CloudService();
