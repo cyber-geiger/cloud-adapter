@@ -1,7 +1,7 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'translation.dart';
 
-part 'tag.g.dart'; 
+part 'tag.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Tag {
@@ -13,15 +13,14 @@ class Tag {
   List<Translation>? nameTranslations;
   String? parentIdTag;
 
-  Tag({
-    this.date,
-    required this.description,
-    this.descriptionTranslations,
-    this.idTag,
-    required this.name,
-    this.nameTranslations,
-    this.parentIdTag
-  });
+  Tag(
+      {this.date,
+      required this.description,
+      this.descriptionTranslations,
+      this.idTag,
+      required this.name,
+      this.nameTranslations,
+      this.parentIdTag});
 
   factory Tag.fromJson(Map<String, dynamic> json) => _$TagFromJson(json);
 
@@ -34,7 +33,8 @@ class Tag {
   set setDescription(String description) => this.description = description;
 
   List<Translation>? get getDescriptionTranslations => descriptionTranslations;
-  set setDescriptionTranslations(List<Translation> descriptionTranslations) => this.descriptionTranslations = descriptionTranslations;
+  set setDescriptionTranslations(List<Translation> descriptionTranslations) =>
+      this.descriptionTranslations = descriptionTranslations;
 
   String? get getIdTag => idTag;
   set setIdTag(String idTag) => this.idTag = idTag;
@@ -43,7 +43,8 @@ class Tag {
   set setName(String name) => this.name = name;
 
   List<Translation>? get getNameTranslations => nameTranslations;
-  set setNameTranslations(List<Translation> idEvent) => nameTranslations = nameTranslations;
+  set setNameTranslations(List<Translation> idEvent) =>
+      nameTranslations = nameTranslations;
 
   String? get getParentIdTag => parentIdTag;
   set setParentIdTag(String parentIdTag) => this.parentIdTag = parentIdTag;

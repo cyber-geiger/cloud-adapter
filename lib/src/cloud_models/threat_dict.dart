@@ -1,6 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 
-part 'threat_dict.g.dart'; 
+part 'threat_dict.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class ThreatDict {
@@ -17,23 +17,22 @@ class ThreatDict {
   List<double>? webApplicationThreats;
   List<double>? webBasedThreats;
 
-  ThreatDict({
-    required this.botnets,
-    required this.dataBreach,
-    required this.denialOfService,
-    required this.externalEnvironmentThreats,
-    required this.insiderThreats,
-    required this.malware,
-    required this.phishing,
-    required this.physicalThreats,
-    required this.ransomware,
-    required this.spam,
-    required this.webApplicationThreats,
-    required this.webBasedThreats
-  });
+  ThreatDict(
+      {required this.botnets,
+      required this.dataBreach,
+      required this.denialOfService,
+      required this.externalEnvironmentThreats,
+      required this.insiderThreats,
+      required this.malware,
+      required this.phishing,
+      required this.physicalThreats,
+      required this.ransomware,
+      required this.spam,
+      required this.webApplicationThreats,
+      required this.webBasedThreats});
 
-  factory ThreatDict.fromJson(Map<String, dynamic> json) => _$ThreatDictFromJson(json);
+  factory ThreatDict.fromJson(Map<String, dynamic> json) =>
+      _$ThreatDictFromJson(json);
 
   Map<String, dynamic> toJson() => _$ThreatDictToJson(this);
-
 }

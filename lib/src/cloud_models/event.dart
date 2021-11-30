@@ -3,7 +3,7 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'translation.dart';
 
-part 'event.g.dart'; 
+part 'event.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Event {
@@ -19,24 +19,23 @@ class Event {
   String? content;
   List<Translation>? translation;
 
-	Event({
-    required this.id_event, 
-    required this.tlp, 
-    this.type, 
-    this.encoding, 
-    this.tags, 
-    this.last_modified, 
-    this.expires, 
-    this.language, 
-    this.owner, 
-    this.content, 
+  Event({
+    required this.id_event,
+    required this.tlp,
+    this.type,
+    this.encoding,
+    this.tags,
+    this.last_modified,
+    this.expires,
+    this.language,
+    this.owner,
+    this.content,
     this.translation,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) => _$EventFromJson(json);
 
   Map<String, dynamic> toJson() => _$EventToJson(this);
-
 
   String? get getIdEvent => id_event;
   set setIdEvent(String id_event) => this.id_event = id_event;
@@ -54,7 +53,8 @@ class Event {
   set setTags(List<String> tags) => this.tags = tags;
 
   DateTime? get getLastModified => last_modified;
-  set setLastModified(DateTime last_modified) => this.last_modified = last_modified;
+  set setLastModified(DateTime last_modified) =>
+      this.last_modified = last_modified;
 
   DateTime? get getExpires => expires;
   set setExpires(DateTime expires) => this.expires = expires;
@@ -66,9 +66,9 @@ class Event {
   set setOwner(String owner) => this.owner = owner;
 
   String? get getContent => content;
-  set setContent(String	content) => this.content = content;
+  set setContent(String content) => this.content = content;
 
   List<Translation>? get getTranslation => translation;
-  set setTranslation(List<Translation> translation) => this.translation = translation;
-
+  set setTranslation(List<Translation> translation) =>
+      this.translation = translation;
 }

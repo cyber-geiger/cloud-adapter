@@ -1,7 +1,6 @@
 import 'dart:io';
 
 class ReplicationException implements IOException {
-
   final String _message;
   final Exception? _cause;
   final StackTrace? _stackTrace;
@@ -18,12 +17,13 @@ class ReplicationException implements IOException {
 
   @override
   String toString() {
-    String ret='ReplicationException: $_message';
-    if(_cause!=null) {
+    String ret = 'ReplicationException: $_message';
+    if (_cause != null) {
       ret += '\nnested cause:\n${_cause.toString()}';
     }
-    if(_stackTrace!=null)  {
-      ret += '\nOffending stacktrace of nested cause:\n${_stackTrace.toString()}';
+    if (_stackTrace != null) {
+      ret +=
+          '\nOffending stacktrace of nested cause:\n${_stackTrace.toString()}';
     }
     return ret;
   }

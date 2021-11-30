@@ -19,7 +19,7 @@ class CloudService {
   /// ****************
   /// EVENT OPERATIONS
   /// ****************
-  
+
   // CREATE EVENT
   Future<void> createEvent(String username, Event event) async {
     try {
@@ -70,7 +70,7 @@ class CloudService {
         },
         body: jsonEncode(event.toJson()),
       );
-      if (response.statusCode==200){
+      if (response.statusCode == 200) {
         print("event updated");
       }
       print('USER EVENT UPDATED');
@@ -352,7 +352,12 @@ class CloudService {
   }
 
   //CREATE A NEW USER
-  Future<void> createUser(String username, [String? email, String? access, String? expires, String? name, String? publicKey]) async {
+  Future<void> createUser(String username,
+      [String? email,
+      String? access,
+      String? expires,
+      String? name,
+      String? publicKey]) async {
     try {
       print('CREATE USER');
       final String userUri = '/store/user';
@@ -435,12 +440,14 @@ class CloudService {
   }
 
   /// USER MERGED DATA
-  
+
   // MERGE INFORMATION
-  Future<void> createMerge(String idUser1, String idUser2, String agreement, [String? type]) async {
+  Future<void> createMerge(String idUser1, String idUser2, String agreement,
+      [String? type]) async {
     try {
       print('CREATE MERGE');
-      String userUri = '/store/user/$idUser1/merge/$idUser2?agreement=$agreement';
+      String userUri =
+          '/store/user/$idUser1/merge/$idUser2?agreement=$agreement';
       if (type != null) {
         userUri = userUri + '&type=$type';
       }
@@ -468,7 +475,7 @@ class CloudService {
       throw Exception;
     }
   }
-  
+
   // GET LIST OF USER MERGED ACCOUNTS
   Future<List<String>> getMergedAccounts(String idUser) async {
     try {
@@ -572,10 +579,10 @@ class CloudService {
     }
   }
 
-  /// ************************* 
+  /// *************************
   /// THREAT WEIGHTS OPERATIONS
   /// *************************
-  
+
   //GET THREAT WEIGHTS
   Future<List<ThreatWeights>> getThreatWeights() async {
     try {
@@ -610,7 +617,6 @@ class CloudService {
       throw Exception;
     }
   }
-
 
   /// *******************
   /// CLOUD UTILS METHODS

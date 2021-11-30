@@ -1,22 +1,22 @@
 import 'package:json_annotation/json_annotation.dart';
 
-part 'translation.g.dart'; 
+part 'translation.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Translation {
-	String? idTranslation;
-	String? language;
-	DateTime? date;
-	String? content;
+  String? idTranslation;
+  String? language;
+  DateTime? date;
+  String? content;
 
-	Translation({
-    required this.idTranslation, 
-    required this.language, 
-    required this.date, 
-    this.content
-  });
+  Translation(
+      {required this.idTranslation,
+      required this.language,
+      required this.date,
+      this.content});
 
-  factory Translation.fromJson(Map<String, dynamic> json) => _$TranslationFromJson(json);
+  factory Translation.fromJson(Map<String, dynamic> json) =>
+      _$TranslationFromJson(json);
 
   Map<String, dynamic> toJson() => _$TranslationToJson(this);
 
@@ -30,5 +30,6 @@ class Translation {
   set setContent(String content) => this.content = content;
 
   String? get getIdTranslation => idTranslation;
-  set setIdTranslation(String idTranslation) => this.idTranslation = idTranslation;
+  set setIdTranslation(String idTranslation) =>
+      this.idTranslation = idTranslation;
 }
