@@ -5,9 +5,8 @@ import 'package:cloud_replication_package/cloud_replication_package.dart';
 import 'package:cloud_replication_package/src/cloud_models/event.dart';
 import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:cloud_replication_package/src/service/cloud_service.dart';
-import 'package:cloud_replication_package/src/service/replication_service.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:geiger_localstorage/geiger_localstorage.dart' as toolboxAPI;
+
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:intl/intl.dart';
@@ -17,25 +16,25 @@ import 'package:test/test.dart';
 
 void replicationTests() async {
 
-  late toolboxAPI.StorageController storageController;
+  //late toolbox_api.StorageController storageController;
   final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
 
   /// PAIR TEST
   test('Pairing Test', () async {
     WidgetsFlutterBinding.ensureInitialized();
     //String dbPath = join(await getDatabasesPath(), './dbFileName.sqlite');
-    //storageController = toolboxAPI.GenericController('Cloud-Replication', toolboxAPI.SqliteMapper(dbPath));
-    //storageController = toolboxAPI.GenericController(
-    //    'Cloud-Replication', toolboxAPI.DummyMapper());
+    //storageController = toolbox_api.GenericController('Cloud-Replication', toolbox_api.SqliteMapper(dbPath));
+    //storageController = toolbox_api.GenericController(
+    //    'Cloud-Replication', toolbox_api.DummyMapper());
     /*ReplicationController rep;
     rep = ReplicationService();
     //CREATE 2 CLOUD USERS
     await rep.createCloudUser("replicationUser1");
     await rep.createCloudUser("replicationUser2");
-    toolboxAPI.Node node = toolboxAPI.NodeImpl(':keys:replicationUser2');
+    toolbox_api.Node node = toolbox_api.NodeImpl(':keys:replicationUser2');
     storageController.update(node);
-    node.addOrUpdateValue(toolboxAPI.NodeValueImpl('agreement', 'in'));
-    node.addOrUpdateValue(toolboxAPI.NodeValueImpl('type', 'peer'));
+    node.addOrUpdateValue(toolbox_api.NodeValueImpl('agreement', 'in'));
+    node.addOrUpdateValue(toolbox_api.NodeValueImpl('type', 'peer'));
     storageController.update(node);
     await rep.setPair('replicationUser1', 'replicationUser2');*/
   });
@@ -77,9 +76,9 @@ void replicationTests() async {
   });
   test('update Event', () async {
     var cloud = CloudService();
-    String id_event = '21546532-4521-3542-1235-54321654';
-    Event event = Event(id_event: id_event, tlp: 'WHITE');
-    await cloud.updateEvent('anyRandomUserId', id_event, event);
+    String idEvent = '21546532-4521-3542-1235-54321654';
+    Event event = Event(id_event: idEvent, tlp: 'WHITE');
+    await cloud.updateEvent('anyRandomUserId', idEvent, event);
   });
   test('user Exist', () async {
     final cloud = CloudService();
@@ -124,8 +123,8 @@ void replicationTests() async {
   });
   test('get Single User Event', () async {
     var cloud = CloudService();
-    String id_event = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
-    Event response = await cloud.getSingleUserEvent('hackathon', id_event);
+    String idEvent = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+    Event response = await cloud.getSingleUserEvent('hackathon', idEvent);
     print(response);
   });
   test('delete Event', () async {

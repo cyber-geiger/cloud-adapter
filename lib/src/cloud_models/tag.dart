@@ -43,7 +43,7 @@ class Tag {
   set setName(String name) => this.name = name;
 
   List<Translation>? get getNameTranslations => nameTranslations;
-  set setNameTranslations(List<Translation> idEvent) => this.nameTranslations = nameTranslations;
+  set setNameTranslations(List<Translation> idEvent) => nameTranslations = nameTranslations;
 
   String? get getParentIdTag => parentIdTag;
   set setParentIdTag(String parentIdTag) => this.parentIdTag = parentIdTag;

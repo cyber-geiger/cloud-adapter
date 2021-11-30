@@ -1,21 +1,21 @@
-import 'package:geiger_localstorage/geiger_localstorage.dart' as toolboxAPI;
+import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 
-class NodeListener with toolboxAPI.StorageListener {
-  final toolboxAPI.Node _oldNode = toolboxAPI.NodeImpl('', '');
-  final toolboxAPI.Node _newNode = toolboxAPI.NodeImpl('', '');
+class NodeListener with toolbox_api.StorageListener {
+  final toolbox_api.Node _oldNode = toolbox_api.NodeImpl('', '');
+  final toolbox_api.Node _newNode = toolbox_api.NodeImpl('', '');
 
-  Future<toolboxAPI.Node> get oldnode async {
+  Future<toolbox_api.Node> get oldnode async {
     return await _oldNode.deepClone();
   }
 
-  Future<toolboxAPI.Node> get newnode async {
+  Future<toolbox_api.Node> get newnode async {
     return await _newNode.deepClone();
   }
 
   @override
   Future<void> gotStorageChange(
-      toolboxAPI.EventType event, toolboxAPI.Node? oldNode, toolboxAPI.Node? newNode) async {
-    await _oldNode.update(oldNode ?? toolboxAPI.NodeImpl('', ''));
-    await _newNode.update(newNode ?? toolboxAPI.NodeImpl('', ''));
+      toolbox_api.EventType event, toolbox_api.Node? oldNode, toolbox_api.Node? newNode) async {
+    await _oldNode.update(oldNode ?? toolbox_api.NodeImpl('', ''));
+    await _newNode.update(newNode ?? toolbox_api.NodeImpl('', ''));
   }
 }

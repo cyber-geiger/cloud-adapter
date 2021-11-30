@@ -1,8 +1,8 @@
-import 'package:geiger_localstorage/geiger_localstorage.dart' as toolboxAPI;
+import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 
 abstract class ReplicationController {
   
-  Future<toolboxAPI.StorageController> initGeigerStorage(); 
+  Future<toolbox_api.StorageController> initGeigerStorage(); 
 
   Future<void> geigerReplication();
 

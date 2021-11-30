@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+// done to achieve parsing from Event Cloud API
 import 'package:json_annotation/json_annotation.dart';
 import 'translation.dart';
 

@@ -70,6 +70,9 @@ class CloudService {
         },
         body: jsonEncode(event.toJson()),
       );
+      if (response.statusCode==200){
+        print("event updated");
+      }
       print('USER EVENT UPDATED');
     } catch (e) {
       print('SOME EXCEPTION OCCURED');
