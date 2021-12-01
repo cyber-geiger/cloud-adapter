@@ -1,15 +1,15 @@
 //import 'dart:convert';
 //import 'dart:io';
 
-import 'package:cloud_replication_package/cloud_replication_package.dart';
-import 'package:cloud_replication_package/src/cloud_models/event.dart';
+//import 'package:cloud_replication_package/cloud_replication_package.dart';
+//import 'package:cloud_replication_package/src/cloud_models/event.dart';
 import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
 //import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:cloud_replication_package/src/service/cloud_service.dart';
 
 //import 'package:http/http.dart' as http;
 //import 'package:http/io_client.dart';
-import 'package:intl/intl.dart';
+//import 'package:intl/intl.dart';
 import 'package:test/test.dart';
 
 void replicationTests() async {
@@ -17,7 +17,7 @@ void replicationTests() async {
   //final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
 
   /// UNPAIR TEST
-  test('Unpair Test', () async {
+  /*test('Unpair Test', () async {
     //RUN PAIRING TEST BEFORE
     ReplicationController rep;
     rep = ReplicationService();
@@ -72,11 +72,11 @@ void replicationTests() async {
     var cloud = CloudService();
     expect(() async => await cloud.createUser('dummyCreate'), returnsNormally);
   });
-  /*test('get Users', () async {
+  test('get Users', () async {
     var cloud = CloudService();
     List<User> response = await cloud.getUsers();
     print(response);
-  });*/
+  });
   test('get TLP White Events', () async {
     var cloud = CloudService();
     List<Event> response = await cloud.getTLPWhiteEvents();
@@ -85,7 +85,7 @@ void replicationTests() async {
 
   test('get TLP White Events - DateTime Filtered', () async {
     var cloud = CloudService();
-    var date = DateTime.now().subtract(Duration(days: 752));
+    var date = DateTime.now().subtract(Duration(days: 1));
     var formatted = DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(date);
     var response =
         await cloud.getTLPWhiteEventsDateFilter(formatted.toString());
@@ -103,20 +103,19 @@ void replicationTests() async {
     List<String> response = await cloud.getUserEventsDateFilter(
         'anyRandomUserId', formatted.toString());
     print(response);
-  });
+  });*/
   /*test('get Single User Event', () async {
     var cloud = CloudService();
     String idEvent = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
     Event response = await cloud.getSingleUserEvent('hackathon', idEvent);
     expect(Exception, Exception);
   });*/
-  test('delete Event', () async {
+  /*test('delete Event', () async {
     var cloud = CloudService();
     String eventId = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
     //await cloud.deleteEvent('hackathon', eventId);
-    expect(() async => await cloud.deleteEvent('hackathon', eventId),
-        returnsNormally);
-  });
+    await cloud.deleteEvent('hackathon', eventId);
+  });*/
   test('get Threat Weights', () async {
     var cloud = CloudService();
     List<ThreatWeights> response = await cloud.getThreatWeights();
