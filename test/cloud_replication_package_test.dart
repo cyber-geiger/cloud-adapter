@@ -1,40 +1,265 @@
-//import 'dart:convert';
-//import 'dart:io';
+import 'dart:convert';
+//import 'package:convert/convert.dart';
+import 'dart:io';
+//import 'dart:math';
+// ignore: library_prefixes
+import 'package:encrypt/encrypt.dart' as Enc;
 
 //import 'package:cloud_replication_package/cloud_replication_package.dart';
 //import 'package:cloud_replication_package/src/cloud_models/event.dart';
+import 'package:cloud_replication_package/cloud_replication_package.dart';
+import 'package:cloud_replication_package/src/cloud_models/event.dart';
+//import 'package:cloud_replication_package/src/cloud_models/short_user.dart';
 import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
+import 'package:cloud_replication_package/src/service/cloud_exception.dart';
 //import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:cloud_replication_package/src/service/cloud_service.dart';
-
-//import 'package:http/http.dart' as http;
-//import 'package:http/io_client.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 //import 'package:intl/intl.dart';
 import 'package:test/test.dart';
+import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
+
+Future<toolbox_api.StorageController> init() async {
+  //print('[REPLICATION] INIT GEIGER STORAGE');
+  WidgetsFlutterBinding.ensureInitialized();
+
+  //await toolbox_api.StorageMapper.initDatabaseExpander();
+  //storageController = toolbox_api.GenericController('Cloud-Replication', toolbox_api.SqliteMapper('dbFileName.bd'));
+  return toolbox_api.GenericController(
+      'Cloud-Replication', toolbox_api.DummyMapper('Cloud-Replication'));
+}
+
+Future<String> generateUUID() async {
+  final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
+  Uri url = Uri.parse(uri + '/uuid');
+  HttpClient client = HttpClient()
+    ..badCertificateCallback =
+        ((X509Certificate cert, String host, int port) => true);
+  var ioClient = IOClient(client);
+  http.Response response =
+      await ioClient.get(url, headers: <String, String>{'accept': ''});
+  if (response.statusCode == 200) {
+    String uuid = jsonDecode(response.body).toString();
+    return uuid;
+  } else {
+    throw CloudException("FAILURE GETTING A UUID");
+  }
+}
 
 void replicationTests() async {
   //late toolbox_api.StorageController storageController;
   //final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
 
-  /// UNPAIR TEST
-  /*test('Unpair Test', () async {
-    //RUN PAIRING TEST BEFORE
-    ReplicationController rep;
-    rep = ReplicationService();
-    expect(() async => await rep.unpair('replicationUser1', 'replicationUser2'),
-        returnsNormally);
+  test('Pair test', () async {
+    toolbox_api.StorageController storageController = await init();
+
+    /// INIT STORAGE WITH ALREADY GIVEN
+    ReplicationController rep = ReplicationService();
+    await rep.initGeigerStorage(storageController);
+    String userId1 = "replicationTest";
+    String userId2 = "replicationTest1";
+    CloudService cloud = CloudService();
+    bool exist = await cloud.userExists(userId1);
+    if (exist == false) {
+      await cloud.createUser(userId1);
+    }
+    bool exist1 = await cloud.userExists(userId2);
+    if (exist1 == false) {
+      await cloud.createUser(userId2);
+    }
+
+    /// Create a custom pairing agreement
+    toolbox_api.Node pairParent =
+        toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
+    await storageController.add(pairParent);
+    print("PAIRING PARENT NODE CREATED");
+    toolbox_api.Node pair =
+        toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
+    await storageController.add(pair);
+    print("PAIRING NODE CREATED");
+    await rep.setPair(userId1, userId2);
+    //GET MERGE FROM CLOUD
+    List<String> userList = await cloud.getMergedAccounts(userId1);
+    if (userList.contains(userId2)) {
+      print("HAS AGREEMENT");
+    }
   });
 
+  /// UNPAIR TEST
+  test('Unpair Test', () async {
+    /// RUN PAIRING TEST BEFORE
+    toolbox_api.StorageController storageController = await init();
+
+    /// INIT STORAGE WITH ALREADY GIVEN
+    ReplicationController rep = ReplicationService();
+    await rep.initGeigerStorage(storageController);
+    String userId1 = "replicationTest";
+    String userId2 = "replicationTest1";
+    CloudService cloud = CloudService();
+    bool exist = await cloud.userExists(userId1);
+    if (exist == false) {
+      await cloud.createUser(userId1);
+    }
+    bool exist1 = await cloud.userExists(userId2);
+    if (exist1 == false) {
+      await cloud.createUser(userId2);
+    }
+
+    /// Create a custom pairing agreement
+    toolbox_api.Node pairParent =
+        toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
+    await storageController.add(pairParent);
+    print("PAIRING PARENT NODE CREATED");
+    toolbox_api.Node pair =
+        toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
+    await storageController.add(pair);
+    print("PAIRING NODE CREATED");
+    await rep.setPair(userId1, userId2);
+    List<String> userList = await cloud.getMergedAccounts(userId1);
+    if (userList.contains(userId2)) {
+      print("HAS AGREEMENT");
+    }
+    await rep.unpair(userId1, userId2);
+
+    try {
+      List<String> userList2 = await cloud.getMergedAccounts(userId1);
+      if (userList2.contains(userId2) == false) {
+        print("UNPAIR ACHIEVED");
+      }
+    } catch (e) {
+      print("AGREEMENT REMOVED");
+    }
+
+    /// CHECK IF LOCAL NODE EXISTS
+    try {
+      toolbox_api.Node node =
+          await storageController.get(":Local:Pairing:$userId2");
+      print(node);
+    } catch (e) {
+      print("NODE NOT FOUND. UNPAIRING ACHIEVED");
+    }
+  });
+  test('Encrypter Test', () async {
+    String data = "Demo";
+    final keyVal = Enc.Key.fromLength(32);
+    final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+    final iv = Enc.IV.fromLength(16);
+    Enc.Encrypted encrypted = enc.encrypt(data, iv: iv);
+    print(encrypted.base64);
+  });
+  test('Share Nodes Test', () async {
+    toolbox_api.StorageController storageController = await init();
+
+    /// INIT STORAGE WITH ALREADY GIVEN
+    ReplicationController rep = ReplicationService();
+    await rep.initGeigerStorage(storageController);
+    String userId1 = "replicationTest";
+    String userId2 = "replicationTest1";
+    CloudService cloud = CloudService();
+    bool exist = await cloud.userExists(userId1);
+    if (exist == false) {
+      await cloud.createUser(userId1);
+    }
+    bool exist1 = await cloud.userExists(userId2);
+    if (exist1 == false) {
+      await cloud.createUser(userId2);
+    }
+
+    /// Create a custom pairing agreement
+    toolbox_api.Node pairParent =
+        toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
+    await storageController.add(pairParent);
+    print("PAIRING PARENT NODE CREATED");
+    toolbox_api.Node pair =
+        toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "both"));
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key",
+        "aes-256-cfb:703373367638792F423F4528482B4D6251655468576D5A7134743777217A2443"));
+    await storageController.add(pair);
+    print("PAIRING NODE CREATED");
+    await rep.setPair(userId1, userId2);
+    //GET MERGE FROM CLOUD
+    List<String> userList = await cloud.getMergedAccounts(userId1);
+    if (userList.contains(userId2)) {
+      print("HAS AGREEMENT");
+    }
+
+    /// CREATE TWO DIFFERENT NODES FOR TESTING PURPOSES
+    toolbox_api.Node node1 = toolbox_api.NodeImpl(':Devices:demo', userId1);
+    node1.addValue(toolbox_api.NodeValueImpl("demo", "workds"));
+
+    ///node1.visibility = "AMBER" as toolbox_api.Visibility;
+    await storageController.add(node1);
+
+    /// GET NODE and PRINT
+    toolbox_api.Node checker = await storageController.get(':Devices:demo');
+    print(checker);
+    await rep.shareNode(':Devices:demo', userId1, userId2);
+
+    /// CHECK IF NODE IN THE CLOUD FOR USERID2 EVENTS
+    /// user 2 has to have the agreement as well in the devide and also in the cloud
+    /// agreement has to be complementary to user1
+    await cloud.createMerge(userId2, userId1, "both");
+    List<String> events = await cloud.getUserEvents(userId2);
+    print(events);
+    for (var single in events) {
+      Event singleOne = await cloud.getSingleUserEvent(userId2, single);
+      print(singleOne);
+    }
+  });
+  test('Get shared nodes', () async {
+    toolbox_api.StorageController storageController = await init();
+
+    /// INIT STORAGE WITH ALREADY GIVEN
+    ReplicationController rep = ReplicationService();
+    //ReplicationService ser = ReplicationService();
+    await rep.initGeigerStorage(storageController);
+    String userId1 = "replicationTest";
+    String userId2 = "replicationTest1";
+
+    /// Create a custom pairing agreement
+    toolbox_api.Node pairParent =
+        toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
+    await storageController.add(pairParent);
+    toolbox_api.Node pair =
+        toolbox_api.NodeImpl(":Local:Pairing:$userId1", "Cloud-Replication");
+
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
+    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
+
+    //Map<String, toolbox_api.NodeValue> checker = await pair.getValues();
+
+    await storageController.add(pair);
+    await rep.getSharedNodes(userId2, userId1);
+  });
+
+/*
   test('Full Replication', () async {
     ReplicationController rep;
     rep = ReplicationService();
     await rep.initGeigerStorage();
     await rep.geigerReplication();
     expect(() async => await rep.geigerReplication(), returnsNormally);
-  }, timeout: Timeout(Duration(minutes: 5)));
+  }, timeout: Timeout(Duration(minutes: 5)));*/
 
   /// CLOUD SERVICE TESTS
   /// TEST OF EACH METHOD
+  test('merge Test', () async {
+    var cloud = CloudService();
+    String idUser1 = "replicationTest";
+    String idUser2 = "replicationTest1";
+    await cloud.deleteMerged(idUser1, idUser2);
+  });
   /* test('create Event', () async {
     var cloud = CloudService();
     //TO GENERATE A NEW CLOUD UUID
@@ -54,7 +279,7 @@ void replicationTests() async {
     }
     expect(response.statusCode, returnsNormally);
   });*/
-  test('update Event', () async {
+  /*test('update Event', () async {
     var cloud = CloudService();
     String idEvent = '21546532-4521-3542-1235-54321654';
     Event event = Event(id_event: idEvent, tlp: 'WHITE');
@@ -104,18 +329,49 @@ void replicationTests() async {
         'anyRandomUserId', formatted.toString());
     print(response);
   });*/
-  /*test('get Single User Event', () async {
+  test('get Single User Event', () async {
     var cloud = CloudService();
-    String idEvent = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
-    Event response = await cloud.getSingleUserEvent('hackathon', idEvent);
-    expect(Exception, Exception);
-  });*/
-  /*test('delete Event', () async {
+    String eventId = await generateUUID();
+    String userId = "replicationTest";
+    bool exist = await cloud.userExists(userId);
+    if (exist == false) {
+      await cloud.createUser(userId);
+    }
+
+    /// Create a simple event
+    Event replicateEvent = Event(id_event: eventId, tlp: "WHITE");
+    await cloud.createEvent(userId, replicateEvent);
+
+    /// Check if the event exists
+    Event checker = await cloud.getSingleUserEvent(userId, eventId);
+    expect(checker.id_event, eventId);
+  });
+  test('delete Event', () async {
     var cloud = CloudService();
-    String eventId = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
-    //await cloud.deleteEvent('hackathon', eventId);
-    await cloud.deleteEvent('hackathon', eventId);
-  });*/
+    String eventId = await generateUUID();
+    String userId = "replicationTest";
+    bool exist = await cloud.userExists(userId);
+    if (exist == false) {
+      await cloud.createUser(userId);
+    }
+
+    /// Create a simple event
+    Event replicateEvent = Event(id_event: eventId, tlp: "WHITE");
+    await cloud.createEvent(userId, replicateEvent);
+
+    /// Check if the event exists
+    Event checker = await cloud.getSingleUserEvent(userId, eventId);
+    if (checker is Event) {
+      print("Event has been stored succesfully");
+      print(userId);
+      print(eventId);
+      await cloud.deleteEvent(userId, eventId);
+    }
+
+    /// Try to get the event
+    expect(() async => await cloud.getSingleUserEvent(userId, eventId),
+        throwsA(isA<CloudException>()));
+  });
   test('get Threat Weights', () async {
     var cloud = CloudService();
     List<ThreatWeights> response = await cloud.getThreatWeights();

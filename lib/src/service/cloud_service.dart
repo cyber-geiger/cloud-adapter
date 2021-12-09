@@ -43,6 +43,7 @@ class CloudService {
         print("EVENT CREATED");
       } else {
         print("SOMETHING WENT WRONG: " + response.statusCode.toString());
+        print(response.body);
         throw Exception(response.body.toString());
       }
     } catch (e) {
@@ -248,13 +249,13 @@ class CloudService {
         var object = jsonDecode(response.body);
         return Event.fromJson(object);
       } else {
-        print('FAILURE: STATUS CODE ' + response.statusCode.toString());
-        throw Exception;
+        throw CloudException(
+            "Exception getting the event from the cloud. Status code: " +
+                response.statusCode.toString());
       }
     } catch (e) {
-      print('SOME EXCEPTION OCCURED');
       print(e);
-      throw Exception;
+      throw CloudException("Exception getting the event from the cloud");
     }
   }
 
@@ -272,16 +273,16 @@ class CloudService {
       final response = await ioClient.delete(
         url,
         headers: <String, String>{
-          'accept': 'application/json',
+          'accept': '*/*',
         },
       );
       if (response.statusCode != 200) {
-        throw Exception;
+        throw CloudException("Exception removing the event. Status code: " +
+            response.statusCode.toString());
       }
     } catch (e) {
-      print('SOME EXCEPTION OCCURED');
       print(e);
-      throw Exception;
+      throw CloudException("Exception removing the event from the cloud");
     }
   }
 
@@ -452,6 +453,7 @@ class CloudService {
         userUri = userUri + '&type=$type';
       }
       Uri url = Uri.parse(uri + userUri);
+      print(url.toString());
       HttpClient client = HttpClient()
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
@@ -460,7 +462,6 @@ class CloudService {
         url,
         headers: <String, String>{
           'accept': '*/*',
-          'Content-type': 'application/json'
         },
       );
       if (response.statusCode == 200) {
@@ -491,7 +492,6 @@ class CloudService {
         url,
         headers: <String, String>{
           'accept': 'application/json',
-          'content-type': 'application/json',
         },
       );
       if (response.statusCode == 200) {
@@ -509,12 +509,12 @@ class CloudService {
         }
         return allMerged;
       } else {
-        throw Exception;
+        throw CloudException(
+            "Failure getting merged accounts for user: $idUser");
       }
     } catch (e) {
-      print('SOME EXCEPTION OCCURED');
       print(e);
-      throw Exception;
+      throw CloudException("Failure getting merged account");
     }
   }
 
@@ -556,7 +556,7 @@ class CloudService {
   Future<void> deleteMerged(String idUser1, String idUser2) async {
     try {
       print('DELETE MERGED INFORMATION');
-      final String eventUri = '/store/user/$idUser1/merged/$idUser2';
+      final String eventUri = '/store/user/$idUser1/merge/$idUser2';
       Uri url = Uri.parse(uri + eventUri);
       print(url);
       HttpClient client = HttpClient()
@@ -566,16 +566,17 @@ class CloudService {
       final response = await ioClient.delete(
         url,
         headers: <String, String>{
-          'accept': 'application/json',
+          'accept': '*/*',
         },
       );
       if (response.statusCode != 200) {
-        throw Exception;
+        throw CloudException(
+            "Error deleting agreement from cloud. Status code: " +
+                response.body);
       }
     } catch (e) {
-      print('SOME EXCEPTION OCCURED');
       print(e);
-      throw Exception;
+      throw CloudException("Error deleting agreement from cloud.");
     }
   }
 
@@ -624,5 +625,21 @@ class CloudService {
   List<Event> parseEvent(String responseBody) {
     final parsed = jsonDecode(responseBody).cast<Map<String, dynamic>>();
     return parsed.map<Event>((e) => Event.fromJson(e)).toList();
+  }
+
+  Future<String> generateUUID() async {
+    Uri url = Uri.parse(uri + '/uuid');
+    HttpClient client = HttpClient()
+      ..badCertificateCallback =
+          ((X509Certificate cert, String host, int port) => true);
+    var ioClient = IOClient(client);
+    http.Response response =
+        await ioClient.get(url, headers: <String, String>{'accept': ''});
+    if (response.statusCode == 200) {
+      String uuid = jsonDecode(response.body).toString();
+      return uuid;
+    } else {
+      throw CloudException("FAILURE GETTING A UUID");
+    }
   }
 }

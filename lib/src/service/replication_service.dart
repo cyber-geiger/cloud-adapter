@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'package:convert/convert.dart';
+import 'package:intl/locale.dart';
 
 import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:cloud_replication_package/src/replication_exception.dart';
@@ -18,7 +19,7 @@ import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 
 // ignore: library_prefixes
 import 'package:encrypt/encrypt.dart' as Enc;
-import 'package:flutter/cupertino.dart';
+//import 'package:flutter/cupertino.dart';
 
 import './node_listener.dart';
 import '../cloud_models/event.dart';
@@ -268,9 +269,13 @@ class ReplicationService implements ReplicationController {
     /// userId1 - local user
     /// userId2 - peer partner
     try {
-      toolbox_api.Node agreement = await getNode(':key:$userId2');
-      String agreeType = agreement.getValue('agreement').toString();
-      String typo = agreement.getValue('type').toString();
+      toolbox_api.Node agreement = await getNode(':Local:Pairing:$userId2');
+      String agreeType = await agreement
+          .getValue('agreement')
+          .then((value) => value!.getValue("en").toString());
+      String typo = await agreement
+          .getValue('type')
+          .then((value) => value!.getValue("en").toString());
 
       /*String complementary;
       if (agreeType == 'in') {
@@ -330,6 +335,12 @@ class ReplicationService implements ReplicationController {
     /// userId2 - peer partner
     /// if paired - remove 2 pairs
 
+    try {
+      await storageController.delete(":Local:Pairing:$userId2");
+    } catch (e) {
+      throw ReplicationException("Pairing Node not found");
+    }
+
     /// check cloud users
     bool user1Exists = await cloud.userExists(userId1);
     if (user1Exists == false) {
@@ -346,8 +357,10 @@ class ReplicationService implements ReplicationController {
       List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
       if (agreeUser1.contains(userId2) == true) {
         try {
+          print("AGREEMENT SET");
           await cloud.deleteMerged(userId1, userId2);
         } catch (e) {
+          print("SOMETHING WENT WRONG REP TEST");
           throw ReplicationException('Cloud Exception: ' + e.toString());
         }
       } else {
@@ -384,44 +397,61 @@ class ReplicationService implements ReplicationController {
     /// create cloud event e2ee (if public key - else no e2ee)
     /// post event
     try {
-      toolbox_api.Node node = await getNode(':key_$receiverUserId');
-      String encryptedKey = node.getValue('key').toString();
-      String agreeValue = node.getValue('agreement').toString();
+      print("SHARE NODE BETWEEN PAIRED DEVICES");
+      toolbox_api.Node node = await getNode(':Local:Pairing:$receiverUserId');
+      String encryptedKey = await node
+          .getValue('key')
+          .then((value) => value!.getValue("en").toString());
+      String agreeValue = await node
+          .getValue('agreement')
+          .then((value) => value!.getValue("en").toString());
       if (agreeValue == 'out' || agreeValue == 'both') {
         try {
+          print("Agreement valid");
           List<String> agreements = await cloud.getMergedAccounts(senderUserId);
           if (agreements.contains(receiverUserId) == true) {
             ShortUser data =
                 await cloud.getMergedInfo(senderUserId, receiverUserId);
             String? publicKey = data.getPublicKey;
             if (publicKey != null) {
-              final keyVal = Enc.Key.fromUtf8(publicKey);
-              final iv = Enc.IV.fromLength(128);
-              final enc =
-                  Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-              // need to decrypt the encryptedKey
-              //DECRYPT DATA
-              encryptedKey = enc
-                  .decrypt(encryptedKey.split(':')[1] as Enc.Encrypted, iv: iv);
+              try {
+                final keyVal = Enc.Key.fromUtf8(publicKey);
+                final iv = Enc.IV.fromLength(128);
+                final enc =
+                    Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+                // need to decrypt the encryptedKey
+                // DECRYPT DATA
+                encryptedKey = enc.decrypt(
+                    encryptedKey.split(':')[1] as Enc.Encrypted,
+                    iv: iv);
+              } catch (e) {
+                print("ISSUE DECRYPTING DATA");
+              }
             } else {
               encryptedKey = encryptedKey.split(':')[1];
             }
             // node to send
             toolbox_api.Node toShareNode = await getNode(nodePath);
-
+            String uuid = await cloud.generateUUID();
             Event toPostEvent = Event(
-                id_event: toShareNode.name.toString(),
-                tlp: toShareNode.visibility.toString());
+                id_event: uuid,
+                tlp: toShareNode.visibility.toValueString().toUpperCase());
             toPostEvent.setOwner = senderUserId;
             toPostEvent.setType = 'user';
-
             //EncryptNode
-            final keyVal = Enc.Key.fromUtf8(encryptedKey);
-            final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-            final iv = Enc.IV.fromLength(128);
-            Enc.Encrypted encrypted =
-                enc.encrypt(toShareNode.toString(), iv: iv);
-            toPostEvent.setContent = encrypted.toString();
+            try {
+              final keyVal = Enc.Key.fromUtf8(encryptedKey);
+              final enc =
+                  Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+              final iv = Enc.IV.fromLength(128);
+              Enc.Encrypted encrypted = enc
+                  .encrypt(await convertNodeToJsonString(toShareNode), iv: iv);
+              toPostEvent.setContent = encrypted.toString();
+            } catch (e) {
+              print("ISSUE ENCRYPTING DATA");
+              toPostEvent.setContent =
+                  await convertNodeToJsonString(toShareNode);
+            }
             await cloud.createEvent(senderUserId, toPostEvent);
           } else {
             throw CloudException('There is no active cloud agreement');
@@ -431,7 +461,7 @@ class ReplicationService implements ReplicationController {
         }
       }
     } catch (e) {
-      throw toolbox_api.StorageException('Key Node not found');
+      throw ReplicationException('Key Node not found');
     }
   }
 
@@ -442,9 +472,14 @@ class ReplicationService implements ReplicationController {
     /// cloud API retrieves also the shared ones
     /// check the Event owner to differenciate
     try {
-      toolbox_api.Node node = await getNode(':key_$senderUserId');
-      String encryptedKey = node.getValue('key').toString();
-      String agreeValue = node.getValue('agreement').toString();
+      print("GET SHARED NODES BETWEEN TWO PAIRED USER/DEVICE");
+      toolbox_api.Node node = await getNode(':Local:Pairing:$senderUserId');
+      String encryptedKey = await node
+          .getValue('key')
+          .then((value) => value!.getValue("en").toString());
+      String agreeValue = await node
+          .getValue('agreement')
+          .then((value) => value!.getValue("en").toString());
       if (agreeValue == 'in' || agreeValue == 'both') {
         try {
           List<String> agreements = await cloud.getMergedAccounts(senderUserId);
@@ -455,13 +490,19 @@ class ReplicationService implements ReplicationController {
             var publicKey = actualUser.getPublicKey;
             if (publicKey != null) {
               publicKey = publicKey.toString();
-
-              final keyVal = Enc.Key.fromUtf8(publicKey);
-              final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
-              final iv = Enc.IV.fromLength(128);
-              //DECRYPT DATA
-              encryptedKey = enc
-                  .decrypt(encryptedKey.split(':')[1] as Enc.Encrypted, iv: iv);
+              try {
+                final keyVal = Enc.Key.fromUtf8(publicKey);
+                final enc =
+                    Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
+                final iv = Enc.IV.fromLength(128);
+                //DECRYPT DATA
+                encryptedKey = enc.decrypt(
+                    encryptedKey.split(':')[1] as Enc.Encrypted,
+                    iv: iv);
+              } catch (e) {
+                print("ISSUE ENCRYPTING DATA");
+                encryptedKey = publicKey;
+              }
             }
 
             /// get user nodes
@@ -473,33 +514,29 @@ class ReplicationService implements ReplicationController {
               if (owner != null) {
                 owner = owner.toString();
                 if (owner == senderUserId) {
-                  /// DECRYPT CONTENT AND SET NEW NODE
-                  final keyVal1 = Enc.Key.fromUtf8(encryptedKey.split(':')[1]);
-                  final enc1 =
-                      Enc.Encrypter(Enc.AES(keyVal1, mode: Enc.AESMode.cfb64));
-                  final iv1 = Enc.IV.fromLength(128);
-                  //DECRYPT DATA
-                  var data = enc1.decrypt(
-                      newEvent.content.toString() as Enc.Encrypted,
-                      iv: iv1);
+                  Map<String, dynamic> data;
+                  if (newEvent.content != null) {
+                    try {
+                      /// DECRYPT CONTENT AND SET NEW NODE
+                      final keyVal1 =
+                          Enc.Key.fromUtf8(encryptedKey.split(':')[1]);
+                      final enc1 = Enc.Encrypter(
+                          Enc.AES(keyVal1, mode: Enc.AESMode.cfb64));
+                      final iv1 = Enc.IV.fromLength(128);
+                      //DECRYPT DATA
+                      data = json.decode(enc1.decrypt(
+                          (newEvent.content!) as Enc.Encrypted,
+                          iv: iv1));
+                    } catch (e) {
+                      data = json.decode(newEvent.content!);
+                    }
 
-                  /// CREATE NODE
-                  toolbox_api.Node newSharedNode = toolbox_api.NodeImpl(
-                      newEvent.id_event.toString(), senderUserId);
-                  toolbox_api.Visibility? visible =
-                      toolbox_api.VisibilityExtension.valueOf(
-                          newEvent.getTlp.toString());
-                  if (visible != null) {
-                    newSharedNode.visibility = visible;
+                    /// CREATE NODE
+                    toolbox_api.Node newSharedNode =
+                        convertJsonStringToNode(json.encode(data));
+                    print(newSharedNode);
+                    await storageController.addOrUpdate(newSharedNode);
                   }
-                  //LOOP ALL ELEMENTS
-                  //storageController.update(newSharedNode);
-                  Map<dynamic, dynamic> mapper = jsonDecode(data);
-                  mapper.forEach((key, value) {
-                    newSharedNode.addOrUpdateValue(
-                        toolbox_api.NodeValueImpl(key, value.toString()));
-                  });
-                  storageController.update(newSharedNode);
                 }
               }
             }
@@ -533,14 +570,16 @@ class ReplicationService implements ReplicationController {
 
   /* INIT */
   @override
-  Future<toolbox_api.StorageController> initGeigerStorage() async {
+  Future<toolbox_api.StorageController> initGeigerStorage(
+      toolbox_api.StorageController storage) async {
     //print('[REPLICATION] INIT GEIGER STORAGE');
-    WidgetsFlutterBinding.ensureInitialized();
+    //WidgetsFlutterBinding.ensureInitialized();
 
-    await toolbox_api.StorageMapper.initDatabaseExpander();
+    //await toolbox_api.StorageMapper.initDatabaseExpander();
     //storageController = toolbox_api.GenericController('Cloud-Replication', toolbox_api.SqliteMapper('dbFileName.bd'));
-    return storageController = toolbox_api.GenericController(
-        'Cloud-Replication', toolbox_api.DummyMapper('Cloud-Replication'));
+    //return storageController = toolbox_api.GenericController(
+    //'Cloud-Replication', toolbox_api.DummyMapper('Cloud-Replication'));
+    return storageController = storage;
   }
 
   /*
@@ -974,6 +1013,112 @@ class ReplicationService implements ReplicationController {
       }
     } catch (e) {
       throw toolbox_api.StorageException('No pairing node set up');
+    }
+  }
+
+  toolbox_api.Node convertJsonStringToNode(String content) {
+    /// convert string event content to Json
+    print("CONVERT JSON TO NODE");
+    try {
+      Map<String, dynamic> mapper = jsonDecode(content);
+      var path = mapper['path'];
+      var owner = mapper['owner'];
+      var visibility = mapper['visibility'];
+      var lastModified = mapper['lastModified'];
+      //var name = mapper['name'];
+      //var parentPath = mapper['parentPath'];
+      //var extendedLastModified = mapper['extendedLastModified'];
+      //var tombstone = mapper['tombstone'];
+      List customFields = mapper['custom_fields'];
+      toolbox_api.Node node = toolbox_api.NodeImpl(path, owner);
+      toolbox_api.Visibility? checkerVisible =
+          toolbox_api.VisibilityExtension.valueOf(visibility);
+      if (checkerVisible != null) {
+        node.visibility = checkerVisible;
+      }
+      node.lastModified = lastModified;
+
+      for (var custom in customFields) {
+        var key = custom['key'];
+        var value = custom['value'];
+        var nodeDescription = custom['nodeDescription'];
+        var valueTranslations = custom['valueTranslations'];
+        var descriptionTranslations = custom['descriptionTranslations'];
+        toolbox_api.NodeValue nodeValue =
+            toolbox_api.NodeValueImpl(key, value.toString());
+        for (var translation in valueTranslations) {
+          nodeValue.setValue(translation['value'],
+              Locale.fromSubtags(languageCode: translation['key']));
+        }
+        if (nodeDescription != null) {
+          nodeValue.setDescription(nodeDescription);
+          for (var description in descriptionTranslations) {
+            nodeValue.setValue(description['value'],
+                Locale.fromSubtags(languageCode: description['key']));
+          }
+        }
+        node.addOrUpdateValue(nodeValue);
+      }
+
+      return node;
+    } catch (e) {
+      print(e);
+      throw ReplicationException(
+          "[REPLICATION EXCEPTION] FAIL PASSING EVENT JSON STRING CONTENT TYPE TO NODE");
+    }
+  }
+
+  Future<String> convertNodeToJsonString(toolbox_api.Node node) async {
+    print("CONVERT NODE TO JSON");
+    try {
+      var converted = {};
+
+      /// CONVERT VALUES
+      converted['name'] = node.name;
+      converted['parentPath'] = node.parentPath;
+      converted['path'] = node.path;
+      converted['owner'] = node.owner;
+      converted['visibility'] = node.visibility.toValueString();
+      converted['lastModified'] = node.lastModified;
+      converted['extendedLastModified'] = node.extendedLastModified;
+      converted['tombstone'] = node.tombstone;
+      converted['custom_fields'] = [];
+      Map<String, toolbox_api.NodeValue> mapper = await node.getValues();
+      mapper.forEach((key, value) {
+        toolbox_api.NodeValue nodeValue = value;
+        var loop = {};
+        loop['key'] = nodeValue.key;
+        loop['value'] = nodeValue.value;
+        loop['valueTranslations'] = [];
+
+        Map<Locale, String> valueTranslations = nodeValue.allValueTranslations;
+        valueTranslations.forEach((key, value) {
+          var valueT = {};
+          valueT['key'] = key.toString();
+          valueT['value'] = value;
+          loop['valueTranslations'].add(valueT);
+        });
+
+        loop['nodeDescription'] = nodeValue.getDescription();
+        loop['descriptionTranslations'] = [];
+        if (nodeValue.getDescription() != null) {
+          Map<Locale, String> descriptionTranslations =
+              nodeValue.allDescriptionTranslations;
+          descriptionTranslations.forEach((key, value) {
+            var valueT = {};
+            valueT['key'] = key.toString();
+            valueT['value'] = value;
+            loop['descriptionTranslations'].add(valueT);
+          });
+        }
+        converted['custom_fields'].add(loop);
+      });
+      String stringConverted = json.encode(converted);
+      return stringConverted;
+    } catch (e) {
+      print(e);
+      throw ReplicationException(
+          "[REPLICATION EXCEPTION] FAIL CONVERT NODE TO JSON STRING");
     }
   }
 }
