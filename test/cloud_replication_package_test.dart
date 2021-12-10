@@ -243,14 +243,27 @@ void replicationTests() async {
     await rep.getSharedNodes(userId2, userId1);
   });
 
-/*
   test('Full Replication', () async {
-    ReplicationController rep;
-    rep = ReplicationService();
-    await rep.initGeigerStorage();
+    toolbox_api.StorageController storageController = await init();
+
+    /// INIT STORAGE WITH ALREADY GIVEN
+    ReplicationController rep = ReplicationService();
+    await rep.initGeigerStorage(storageController);
     await rep.geigerReplication();
-    expect(() async => await rep.geigerReplication(), returnsNormally);
-  }, timeout: Timeout(Duration(minutes: 5)));*/
+
+    ///GET REPLICATION TLP WHITE MISP NODES
+    toolbox_api.Node see = await storageController.get(":Global:misp");
+    Map<String, toolbox_api.Node> demo = await see.getChildren();
+    print(demo);
+
+    /// CHECK IF REPLICATION NODE HAS BEEN UPDATED
+    toolbox_api.Node updateRep =
+        await storageController.get(':Local:Replication:LastReplication');
+    toolbox_api.Node updateRepNode =
+        await storageController.get(':Local:Replication:LastReplication');
+    print(updateRep);
+    print(updateRepNode);
+  }, timeout: Timeout(Duration(minutes: 5)));
 
   /// CLOUD SERVICE TESTS
   /// TEST OF EACH METHOD
@@ -260,7 +273,7 @@ void replicationTests() async {
     String idUser2 = "replicationTest1";
     await cloud.deleteMerged(idUser1, idUser2);
   });
-  /* test('create Event', () async {
+  /*test('create Event', () async {
     var cloud = CloudService();
     //TO GENERATE A NEW CLOUD UUID
     Uri url = Uri.parse(uri + '/uuid');
@@ -361,12 +374,10 @@ void replicationTests() async {
 
     /// Check if the event exists
     Event checker = await cloud.getSingleUserEvent(userId, eventId);
-    if (checker is Event) {
-      print("Event has been stored succesfully");
-      print(userId);
-      print(eventId);
-      await cloud.deleteEvent(userId, eventId);
-    }
+    print("Event has been stored succesfully");
+    print(checker.id_event);
+    print(checker.owner);
+    await cloud.deleteEvent(userId, eventId);
 
     /// Try to get the event
     expect(() async => await cloud.getSingleUserEvent(userId, eventId),

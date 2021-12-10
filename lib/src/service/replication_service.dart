@@ -41,7 +41,8 @@ class ReplicationService implements ReplicationController {
 
   @override
   Future<void> geigerReplication() async {
-    //print('Starting GEIGER Replication');
+    print('STARTING GEIGER REPLICATION');
+
     /// Follow diagram
     /// 3 steps replication
     /// Cloud to device
@@ -49,8 +50,8 @@ class ReplicationService implements ReplicationController {
     /// Storage listener
     /// Take care of strategies
 
-    // 1. INIT STORAGE
-    //await initGeigerStorage();
+    /// 1. INIT STORAGE
+    /// this is done with initgeigerstoremethod providing an already initiated storage controller
 
     /// CHECK WHEN LAST REPLICATION TOOK PLACE
     /// Nodes that handle replication:
@@ -60,7 +61,7 @@ class ReplicationService implements ReplicationController {
 
     /// 180 -> Default expiring date
     DateTime _fromDate = _actual.subtract(Duration(days: 180));
-    //print('[1st FLOW] - TIMESTAMP CHECKER');
+    print('[1st FLOW] - TIMESTAMP CHECKER');
     try {
       toolbox_api.Node timeChecker =
           await getNode(':Local:Replication:LastReplication');
@@ -69,11 +70,11 @@ class ReplicationService implements ReplicationController {
       Duration _diff = _actual.difference(_lastTimestamp);
       if (_diff.inDays > 30) {
         /// FULL REPLICATION TAKES PLACE
-        //print("FULL REPLICATION");
+        print("FULL REPLICATION");
         _fullRep = true;
       } else {
         /// PARTIAL REPLICATION TAKES PLACE
-        //print("PARTIAL REPLICATION");
+        print("PARTIAL REPLICATION");
         _fullRep = false;
         _fromDate = _lastTimestamp;
       }
@@ -103,25 +104,27 @@ class ReplicationService implements ReplicationController {
       }
     } catch (e) {
       //print('Not user data retrieved');
-      toolbox_api.StorageException('Not able to get user data');
+      toolbox_api.StorageException('USER DATA NOT FOUND. ERROR');
       exit(1);
     }
+    print(_username);
 
     /// CLOUD TO LOCAL REPLICATION
-    print("CLOUD TO LOCAL");
+    print("[2nd FLOW] - CLOUD TO LOCAL");
     await cloudToLocalReplication(_username, _actual, _fromDate, _fullRep);
 
     /// LOCAL TO CLOUD REPLICATION
-    print("LOCAL TO CLOUD");
+    print("[3rd FLOW] - LOCAL TO CLOUD");
     await localToCloudReplication(_username, _actual, _fromDate, _fullRep);
 
     /// UPDATE WHEN LAST REPLICATION TOOK PLACE
-    print("UPDATE WHEN LAST REPLICAION TOOK PLACE");
+    print("[4th FLOW] - UPDATE WHEN LAST REPLICAION TOOK PLACE");
     await updateReplicationNode(_actual);
 
     /// STORAGE LISTENER
-    print("LISTENER REPLICATION");
-    await storageListenerReplication(_username);
+    print("[5th FLOW] - LISTENER REPLICATION");
+
+    ///await storageListenerReplication(_username);
   }
 
   Future<void> cloudToLocalReplication(String _username, DateTime _actual,
@@ -143,11 +146,11 @@ class ReplicationService implements ReplicationController {
       String owner = singleOne.owner.toString();
       if (owner != _username) {
         if (type.toLowerCase() == "keyvalue") {
-          //print('NO E2EE');
+          print('NO E2EE');
           updateLocalNodeWithCloudEvent(singleOne);
         }
         if (type.toLowerCase() == "user") {
-          //print('E2EE');
+          print('E2EE');
           //GET KEYS
           try {
             toolbox_api.Node keys = await getNode(':Keys:$id');
@@ -197,11 +200,13 @@ class ReplicationService implements ReplicationController {
     } else {
       /// ASK FOR SEARCH CRITERIA NODE BASED
       //print('PARTIAL REPLICATION');
+      nodeList = await getAllNodes();
     }
+    print(nodeList);
 
     /// SORT NODES BY TIMESTAMP
-    nodeList.sort((a, b) =>
-        a.lastModified.toString().compareTo(b.lastModified.toString()));
+    nodeList.sort((a, b) => DateTime.fromMicrosecondsSinceEpoch(a.lastModified)
+        .compareTo(DateTime.fromMicrosecondsSinceEpoch(b.lastModified)));
 
     if (nodeList.isEmpty == false) {
       for (var sorted in nodeList) {
@@ -214,6 +219,7 @@ class ReplicationService implements ReplicationController {
         /// 3 AGREEMENTS: NEVER, NO ONCE, AGREE ONCE
         /// CREATE EVENT
         Event toCheck = Event(id_event: identifier, tlp: tlp.toUpperCase());
+        print("visibility of node is TLP: " + tlp);
         if (tlp.toLowerCase() == 'red') {
           try {
             toolbox_api.Node keys = await getNode(':Keys:$identifier');
@@ -617,7 +623,7 @@ class ReplicationService implements ReplicationController {
 
   void updateLocalNodeWithCloudEvent(Event event) async {
     //print('CHECK NODES');
-    toolbox_api.Node _toCheck = event.content as toolbox_api.Node;
+    toolbox_api.Node _toCheck = convertJsonStringToNode(event.content!);
     String _nodePath = _toCheck.path.toString();
     try {
       toolbox_api.Node inLocal = await getNode(_nodePath);
@@ -654,6 +660,7 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<void> updateTLPWhiteEvents(bool _fullRep, DateTime _fromDate) async {
+    print("TLP WHUITE EVENTS");
     List<Event> freeEvents;
     // FILTER BY DATE
     if (_fullRep == true) {
@@ -670,7 +677,7 @@ class ReplicationService implements ReplicationController {
       DateTime cloudTimestamp = DateTime.parse(free.last_modified.toString());
       if (free.content.toString().isNotEmpty) {
         try {
-          var content = jsonDecode(free.content!);
+          ///var content = jsonDecode(free.content!);
           String nodePath = ':Global:$typeTLP:$uuid';
 
           /// CHECK IF typeTLP node created
@@ -696,12 +703,14 @@ class ReplicationService implements ReplicationController {
             newRepNode.visibility = visible;
           }
           //LOOP ALL ELEMENTS
+          newRepNode.addOrUpdateValue(
+              toolbox_api.NodeValueImpl("tlpWHITE", free.content!));
           //await storageController.update(newRepNode);
-          Map<dynamic, dynamic> mapper = content;
-          mapper.forEach((key, value) {
+          /*Map<dynamic, dynamic> mapper = content;*/
+          /*mapper.forEach((key, value) {
             newRepNode.addOrUpdateValue(
                 toolbox_api.NodeValueImpl(key, value.toString()));
-          });
+          });*/
           await updateLocalNodeWithNewNode(
               nodePath, newRepNode, cloudTimestamp);
         } catch (e) {
@@ -713,12 +722,14 @@ class ReplicationService implements ReplicationController {
 
   /// STORE :Global:ThreatWeight:UUID
   Future<void> updateThreatWeights() async {
-    //print('UPDATE THREAT WEIGHTS');
+    print('UPDATE THREAT WEIGHTS');
     try {
+      print("THREAET WEIGHTS NODE EXISTS");
       toolbox_api.Node typeChecker = await getNode(':Global:ThreatWeight');
       print(typeChecker.name.toString());
     } catch (e) {
       /// CREATE NODE FOR TYPE of TLP WHITE EVENT
+      print("THREAT WEIGHT NODE TO BE CREATED");
       toolbox_api.Node typeChecker =
           toolbox_api.NodeImpl(':Global:ThreatWeight', 'ULEI');
       toolbox_api.Visibility? checkerVisible =
@@ -736,21 +747,33 @@ class ReplicationService implements ReplicationController {
         try {
           toolbox_api.Node checker =
               await getNode(':Global:ThreatWeight:$uuid');
-          Map<String, dynamic> mapper = data.toJson();
+          /*Map<String, dynamic> mapper = data.toJson();
           mapper.forEach((key, value) {
             checker.addOrUpdateValue(
                 toolbox_api.NodeValueImpl(key, value.toString()));
-          });
-          await storageController.add(checker);
+          });*/
+          // add all the fields in a single json string
+          checker.addOrUpdateValue(
+              toolbox_api.NodeValueImpl('threatJson', jsonEncode(data)));
+          print(checker);
+          await storageController.update(checker);
         } catch (e) {
           toolbox_api.Node newThreatNode =
               toolbox_api.NodeImpl(':Global:ThreatWeight:$uuid', 'ULEI');
-          Map<String, dynamic> mapper = data.toJson();
+          toolbox_api.Visibility? visible =
+              toolbox_api.VisibilityExtension.valueOf("white");
+          if (visible != null) {
+            newThreatNode.visibility = visible;
+          }
+          /*Map<String, dynamic> mapper = data.toJson();
           mapper.forEach((key, value) {
             newThreatNode.addOrUpdateValue(
                 toolbox_api.NodeValueImpl(key, value.toString()));
-          });
-          await storageController.update(newThreatNode);
+          });*/
+          newThreatNode.addOrUpdateValue(
+              toolbox_api.NodeValueImpl('threatJson', jsonEncode(data)));
+          print(newThreatNode);
+          await storageController.add(newThreatNode);
         }
       }
     }
@@ -882,21 +905,23 @@ class ReplicationService implements ReplicationController {
   Future<List<toolbox_api.Node>> getAllNodes() async {
     List<toolbox_api.Node> nodeList = [];
     try {
-      toolbox_api.Node root = await getNode('');
-      getRecursiveNodes(root, nodeList);
+      toolbox_api.Node root = await getNode(':');
+      print(root);
+      nodeList = await getRecursiveNodes(root, nodeList);
     } catch (e) {
       //print('Exception');
     }
     return nodeList;
   }
 
-  void getRecursiveNodes(
+  Future<List<toolbox_api.Node>> getRecursiveNodes(
       toolbox_api.Node node, List<toolbox_api.Node> list) async {
     list.add(node);
     Map<String, toolbox_api.Node> children = await node.getChildren();
     children.forEach((key, value) {
       getRecursiveNodes(value, list);
     });
+    return list;
   }
 
   Future<void> cleanData(DateTime actual) async {
@@ -955,7 +980,7 @@ class ReplicationService implements ReplicationController {
   Future<void> updatePairedEvent(String username, Event event) async {
     try {
       String owner = event.owner.toString();
-      toolbox_api.Node node = await getNode(':key_$owner');
+      toolbox_api.Node node = await getNode(':Local:Pairing:$owner');
       String encryptedKey = node.getValue('key').toString();
       String agreeValue = node.getValue('agreement').toString();
       if (agreeValue == 'in' || agreeValue == 'both') {
@@ -990,21 +1015,13 @@ class ReplicationService implements ReplicationController {
                 iv: iv1);
 
             /// CREATE NODE
-            toolbox_api.Node newSharedNode =
-                toolbox_api.NodeImpl(event.id_event.toString(), owner);
+            toolbox_api.Node newSharedNode = convertJsonStringToNode(data);
             toolbox_api.Visibility? visible =
                 toolbox_api.VisibilityExtension.valueOf(
                     event.getTlp.toString());
             if (visible != null) {
               newSharedNode.visibility = visible;
             }
-            //LOOP ALL ELEMENTS
-            ///storageController.update(newSharedNode);
-            Map<dynamic, dynamic> mapper = jsonDecode(data);
-            mapper.forEach((key, value) {
-              newSharedNode.addOrUpdateValue(
-                  toolbox_api.NodeValueImpl(key, value.toString()));
-            });
             storageController.update(newSharedNode);
           }
         } catch (e) {
