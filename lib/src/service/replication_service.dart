@@ -161,7 +161,7 @@ class ReplicationService implements ReplicationController {
             final String decodedKey = hex.decode(onlyKey[1]).toString();
 
             final keyVal = Enc.Key.fromUtf8(decodedKey);
-            final iv = Enc.IV.fromLength(128);
+            final iv = Enc.IV.fromLength(16);
             final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
 
             //DECRYPT DATA
@@ -200,7 +200,7 @@ class ReplicationService implements ReplicationController {
     } else {
       /// ASK FOR SEARCH CRITERIA NODE BASED
       //print('PARTIAL REPLICATION');
-      nodeList = await getAllNodes();
+      nodeList = await getAllNodesLastModified(_fromDate);
     }
     print(nodeList);
 
@@ -208,17 +208,39 @@ class ReplicationService implements ReplicationController {
     nodeList.sort((a, b) => DateTime.fromMicrosecondsSinceEpoch(a.lastModified)
         .compareTo(DateTime.fromMicrosecondsSinceEpoch(b.lastModified)));
 
+    /// GET ALL EVENTS OF A USER - THE NAME CAN BE ANYTHING
+    /// UUID IS RECOMMENDED BUT NOT MANDATORY
+    /// CONVERT ALL TO NODES AND CHECK
+    List<toolbox_api.Node> cloudNodeList = [];
+    List<String> userEvents = [];
+    try {
+      userEvents = await cloud.getUserEvents(_username);
+      for (var cloudEvent in userEvents) {
+        try {
+          Event newCloudEvent =
+              await cloud.getSingleUserEvent(_username, cloudEvent);
+          cloudNodeList.add(convertJsonStringToNode(newCloudEvent.content!));
+        } catch (e) {
+          print("ERROR GETTING SINGLE USER EVENT");
+        }
+      }
+    } catch (e) {
+      print("ERROR GETTING CLOUD USER EVENTS");
+    }
+
     if (nodeList.isEmpty == false) {
       for (var sorted in nodeList) {
         /// CHECK TLP
-        String tlp = sorted.visibility.toString();
+        String tlp = sorted.visibility.toValueString();
         String identifier = sorted.name.toString();
         //print(identifier);
         /// CHECK CONSENT
         /// TBD
         /// 3 AGREEMENTS: NEVER, NO ONCE, AGREE ONCE
         /// CREATE EVENT
-        Event toCheck = Event(id_event: identifier, tlp: tlp.toUpperCase());
+        String uuid = await cloud.generateUUID();
+        Event toCheck = Event(id_event: uuid, tlp: tlp.toUpperCase());
+        toCheck.encoding = 'ascii';
         print("visibility of node is TLP: " + tlp);
         if (tlp.toLowerCase() == 'red') {
           try {
@@ -230,37 +252,44 @@ class ReplicationService implements ReplicationController {
             final String decodedKey = hex.decode(onlyKey[1]).toString();
 
             final keyVal = Enc.Key.fromUtf8(decodedKey);
-            final iv = Enc.IV.fromLength(128);
+            final iv = Enc.IV.fromLength(16);
             final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
 
-            Enc.Encrypted encrypted = enc.encrypt(sorted.toString(), iv: iv);
-            toCheck.setContent = encrypted.toString();
+            Enc.Encrypted encrypted =
+                enc.encrypt(await convertNodeToJsonString(sorted), iv: iv);
+            toCheck.content = encrypted.toString();
           } catch (e) {
+            toCheck.content = await convertNodeToJsonString(sorted);
             toolbox_api.StorageException('FAILURE GETTING KEYS');
           }
-          toCheck.setType = 'user_event';
+          toCheck.type = 'user_object';
         } else {
-          toCheck.setType = 'keyvalue';
+          toCheck.type = 'keyvalue';
+          toCheck.content = await convertNodeToJsonString(sorted);
         }
         //CHECK IF EVENT IN CLOUD
         try {
+          print("NODE RETRIEVED");
           // IF OK
           // CHECK TIMESTAMP
           // IF NEEDED -> PUT
-          Event exist = await cloud.getSingleUserEvent(_username, identifier);
-          if (exist.last_modified != null) {
-            DateTime toCompare = DateTime.parse(exist.last_modified.toString());
+          if (cloudNodeList.contains(sorted)) {
+            int index = cloudNodeList.indexOf(sorted);
+            DateTime toCompare = DateTime.fromMicrosecondsSinceEpoch(
+                cloudNodeList[index].lastModified);
             DateTime nodeTime =
                 DateTime.fromMicrosecondsSinceEpoch(sorted.lastModified);
             //AS IN CLOUD, COMPARE DATETIMES
             Duration _diff = nodeTime.difference(toCompare);
             if (_diff.inDays > 0) {
-              await cloud.updateEvent(_username, identifier, toCheck);
+              await cloud.updateEvent(_username, userEvents[index], toCheck);
             }
+          } else {
+            await cloud.createEvent(_username, toCheck);
           }
         } catch (e) {
           // IF NO EVENT IS RETURNED -> POST NEW EVENT
-          cloud.createEvent(_username, toCheck);
+          await cloud.createEvent(_username, toCheck);
         }
       }
     }
@@ -297,7 +326,7 @@ class ReplicationService implements ReplicationController {
       /// check cloud users
       bool user1Exists = await cloud.userExists(userId1);
       if (user1Exists == false) {
-        cloud.createUser(userId1);
+        await cloud.createUser(userId1);
       }
       /*bool user2Exists = await cloud.userExists(userId2);
       if (user2Exists == false) {
@@ -422,7 +451,7 @@ class ReplicationService implements ReplicationController {
             if (publicKey != null) {
               try {
                 final keyVal = Enc.Key.fromUtf8(publicKey);
-                final iv = Enc.IV.fromLength(128);
+                final iv = Enc.IV.fromLength(16);
                 final enc =
                     Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
                 // need to decrypt the encryptedKey
@@ -444,12 +473,13 @@ class ReplicationService implements ReplicationController {
                 tlp: toShareNode.visibility.toValueString().toUpperCase());
             toPostEvent.setOwner = senderUserId;
             toPostEvent.setType = 'user';
+            toPostEvent.encoding = 'ascii';
             //EncryptNode
             try {
               final keyVal = Enc.Key.fromUtf8(encryptedKey);
               final enc =
                   Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-              final iv = Enc.IV.fromLength(128);
+              final iv = Enc.IV.fromLength(16);
               Enc.Encrypted encrypted = enc
                   .encrypt(await convertNodeToJsonString(toShareNode), iv: iv);
               toPostEvent.setContent = encrypted.toString();
@@ -500,7 +530,7 @@ class ReplicationService implements ReplicationController {
                 final keyVal = Enc.Key.fromUtf8(publicKey);
                 final enc =
                     Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cbc));
-                final iv = Enc.IV.fromLength(128);
+                final iv = Enc.IV.fromLength(16);
                 //DECRYPT DATA
                 encryptedKey = enc.decrypt(
                     encryptedKey.split(':')[1] as Enc.Encrypted,
@@ -528,7 +558,7 @@ class ReplicationService implements ReplicationController {
                           Enc.Key.fromUtf8(encryptedKey.split(':')[1]);
                       final enc1 = Enc.Encrypter(
                           Enc.AES(keyVal1, mode: Enc.AESMode.cfb64));
-                      final iv1 = Enc.IV.fromLength(128);
+                      final iv1 = Enc.IV.fromLength(16);
                       //DECRYPT DATA
                       data = json.decode(enc1.decrypt(
                           (newEvent.content!) as Enc.Encrypted,
@@ -797,7 +827,7 @@ class ReplicationService implements ReplicationController {
         Event checker = await cloud.getSingleUserEvent(_username, eventId);
         print(checker.getIdEvent.toString());
         //IF EVENT RETRIEVED IS BECAUSE EXISTS -> DELETE
-        cloud.deleteEvent(_username, eventId);
+        await cloud.deleteEvent(_username, eventId);
       } catch (e) {
         print('NODE NOT IN cloud. NOTHING TO DO');
       }
@@ -805,7 +835,7 @@ class ReplicationService implements ReplicationController {
       /// CREATE, UPDATE OR RENAME A NODE
       /// FOLLOW STEPS
       /// TLP
-      String tlp = node.visibility.toString();
+      String tlp = node.visibility.toValueString();
       if (tlp.toLowerCase() == 'black') {
         print('BLACK TLP NODES MUST NOT BE REPLICATED');
       } else {
@@ -817,6 +847,7 @@ class ReplicationService implements ReplicationController {
           String nodeName = node.name.toString();
           Event toCloudEvent = Event(id_event: nodeName, tlp: tlp);
           toCloudEvent.owner = node.owner.toString();
+          toCloudEvent.encoding = 'ascii';
           if (tlp.toLowerCase() == 'red') {
             //GET KEYS
             try {
@@ -828,7 +859,7 @@ class ReplicationService implements ReplicationController {
               final String decodedKey = hex.decode(onlyKey[1]).toString();
 
               final keyVal = Enc.Key.fromUtf8(decodedKey);
-              final iv = Enc.IV.fromLength(128);
+              final iv = Enc.IV.fromLength(16);
               final enc =
                   Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
 
@@ -848,11 +879,11 @@ class ReplicationService implements ReplicationController {
             print(checker.getIdEvent.toString());
             if (eventType.toString() == 'create') {
               //UPDATE
-              cloud.updateEvent(_username, nodeName, toCloudEvent);
+              await cloud.updateEvent(_username, nodeName, toCloudEvent);
             }
             if (eventType.toString() == 'update') {
               //UPDATE
-              cloud.updateEvent(_username, nodeName, toCloudEvent);
+              await cloud.updateEvent(_username, nodeName, toCloudEvent);
             }
             if (eventType.toString() == 'rename') {
               //CHECK PREVIOUS ONE
@@ -861,23 +892,24 @@ class ReplicationService implements ReplicationController {
                     _username, oldNode.name.toString());
                 //IF EXISTED - DELETE
                 //THEN - CREATE
-                cloud.deleteEvent(_username, oldChecker.id_event.toString());
-                cloud.updateEvent(_username, nodeName, toCloudEvent);
+                await cloud.deleteEvent(
+                    _username, oldChecker.id_event.toString());
+                await cloud.updateEvent(_username, nodeName, toCloudEvent);
               } catch (e) {
                 //PREVIOUS ONE NOT IN CLOUD
                 //THEN - UPDATE NEW ONE
-                cloud.updateEvent(_username, nodeName, toCloudEvent);
+                await cloud.updateEvent(_username, nodeName, toCloudEvent);
               }
             }
           } catch (e) {
             //print('NODE NOT IN cloud.');
             if (eventType.toString() == 'create') {
               //CREATE
-              cloud.createEvent(_username, toCloudEvent);
+              await cloud.createEvent(_username, toCloudEvent);
             }
             if (eventType.toString() == 'update') {
               //CREATE
-              cloud.createEvent(_username, toCloudEvent);
+              await cloud.createEvent(_username, toCloudEvent);
             }
             if (eventType.toString() == 'rename') {
               //CHECK PREVIOUS ONE
@@ -886,12 +918,13 @@ class ReplicationService implements ReplicationController {
                     _username, oldNode.name.toString());
                 //IF EXISTED - DELETE
                 //THEN - CREATE
-                cloud.deleteEvent(_username, oldChecker.id_event.toString());
-                cloud.createEvent(_username, toCloudEvent);
+                await cloud.deleteEvent(
+                    _username, oldChecker.id_event.toString());
+                await cloud.createEvent(_username, toCloudEvent);
               } catch (e) {
                 //PREVIOUS ONE NOT IN CLOUD
                 //THEN - CREATE
-                cloud.createEvent(_username, toCloudEvent);
+                await cloud.createEvent(_username, toCloudEvent);
               }
             }
           }
@@ -903,10 +936,12 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<List<toolbox_api.Node>> getAllNodes() async {
+    print("GET ALL NODES IN A RECURSIVE WAY");
     List<toolbox_api.Node> nodeList = [];
     try {
       toolbox_api.Node root = await getNode(':');
       print(root);
+      print("ROOT NODE JUST PRINTED");
       nodeList = await getRecursiveNodes(root, nodeList);
     } catch (e) {
       //print('Exception');
@@ -916,12 +951,26 @@ class ReplicationService implements ReplicationController {
 
   Future<List<toolbox_api.Node>> getRecursiveNodes(
       toolbox_api.Node node, List<toolbox_api.Node> list) async {
+    print("RECURSIVE METHOD");
     list.add(node);
     Map<String, toolbox_api.Node> children = await node.getChildren();
-    children.forEach((key, value) {
-      getRecursiveNodes(value, list);
+    print("CHILDREN LIST");
+    print(children);
+    children.forEach((key, value) async {
+      print(key);
+      print(value);
+      list = await getRecursiveNodes(value, list);
     });
     return list;
+  }
+
+  Future<List<toolbox_api.Node>> getAllNodesLastModified(
+      DateTime filter) async {
+    String lastModified = filter.microsecondsSinceEpoch.toString();
+    toolbox_api.SearchCriteria criteria =
+        toolbox_api.SearchCriteria(nodeValueLastModified: lastModified);
+    List<toolbox_api.Node> nodeList = await storageController.search(criteria);
+    return nodeList;
   }
 
   Future<void> cleanData(DateTime actual) async {
@@ -950,7 +999,7 @@ class ReplicationService implements ReplicationController {
 
   Future<bool> checkConsent(toolbox_api.Node node, String username) async {
     bool consent = false;
-    String tlp = node.visibility.toString();
+    String tlp = node.visibility.toValueString();
     if (tlp.toLowerCase() == 'white') {
       consent = true;
     } else {
@@ -997,7 +1046,7 @@ class ReplicationService implements ReplicationController {
               final keyVal = Enc.Key.fromUtf8(publicKey);
               final enc =
                   Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-              final iv = Enc.IV.fromLength(128);
+              final iv = Enc.IV.fromLength(16);
               //DECRYPT DATA
               encryptedKey = enc
                   .decrypt(encryptedKey.split(':')[1] as Enc.Encrypted, iv: iv);
@@ -1009,7 +1058,7 @@ class ReplicationService implements ReplicationController {
             final keyVal1 = Enc.Key.fromUtf8(encryptedKey);
             final enc1 =
                 Enc.Encrypter(Enc.AES(keyVal1, mode: Enc.AESMode.cfb64));
-            final iv1 = Enc.IV.fromLength(128);
+            final iv1 = Enc.IV.fromLength(16);
             //DECRYPT DATA
             var data = enc1.decrypt(event.content.toString() as Enc.Encrypted,
                 iv: iv1);

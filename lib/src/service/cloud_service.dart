@@ -35,7 +35,7 @@ class CloudService {
         url,
         headers: <String, String>{
           'Content-Type': 'application/json',
-          'accept': 'application/json',
+          'accept': '*/*',
         },
         body: jsonEncode(event.toJson()),
       );

@@ -10,17 +10,17 @@ ThreatDict _$ThreatDictFromJson(Map<String, dynamic> json) => ThreatDict(
       botnets: (json['botnets'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
-      dataBreach: (json['dataBreach'] as List<dynamic>?)
+      dataBreach: (json['data breach'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
-      denialOfService: (json['denialOfService'] as List<dynamic>?)
+      denialOfService: (json['denial of service'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
       externalEnvironmentThreats:
-          (json['externalEnvironmentThreats'] as List<dynamic>?)
+          (json['external environment threats'] as List<dynamic>?)
               ?.map((e) => (e as num).toDouble())
               .toList(),
-      insiderThreats: (json['insiderThreats'] as List<dynamic>?)
+      insiderThreats: (json['insider threats'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
       malware: (json['malware'] as List<dynamic>?)
@@ -29,7 +29,7 @@ ThreatDict _$ThreatDictFromJson(Map<String, dynamic> json) => ThreatDict(
       phishing: (json['phishing'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
-      physicalThreats: (json['physicalThreats'] as List<dynamic>?)
+      physicalThreats: (json['physical threats'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
       ransomware: (json['ransomware'] as List<dynamic>?)
@@ -38,10 +38,10 @@ ThreatDict _$ThreatDictFromJson(Map<String, dynamic> json) => ThreatDict(
       spam: (json['spam'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
-      webApplicationThreats: (json['webApplicationThreats'] as List<dynamic>?)
+      webApplicationThreats: (json['web application threats'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
-      webBasedThreats: (json['webBasedThreats'] as List<dynamic>?)
+      webBasedThreats: (json['web-based threats'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
     );
@@ -49,15 +49,15 @@ ThreatDict _$ThreatDictFromJson(Map<String, dynamic> json) => ThreatDict(
 Map<String, dynamic> _$ThreatDictToJson(ThreatDict instance) =>
     <String, dynamic>{
       'botnets': instance.botnets,
-      'dataBreach': instance.dataBreach,
-      'denialOfService': instance.denialOfService,
-      'externalEnvironmentThreats': instance.externalEnvironmentThreats,
-      'insiderThreats': instance.insiderThreats,
+      'data breach': instance.dataBreach,
+      'denial of service': instance.denialOfService,
+      'external environment threats': instance.externalEnvironmentThreats,
+      'insider threats': instance.insiderThreats,
       'malware': instance.malware,
       'phishing': instance.phishing,
-      'physicalThreats': instance.physicalThreats,
+      'physical threats': instance.physicalThreats,
       'ransomware': instance.ransomware,
       'spam': instance.spam,
-      'webApplicationThreats': instance.webApplicationThreats,
-      'webBasedThreats': instance.webBasedThreats,
+      'web application threats': instance.webApplicationThreats,
+      'web-based threats': instance.webBasedThreats,
     };

@@ -5,16 +5,23 @@ part 'threat_dict.g.dart';
 @JsonSerializable(explicitToJson: true)
 class ThreatDict {
   List<double>? botnets;
+  @JsonKey(name: "data breach")
   List<double>? dataBreach;
+  @JsonKey(name: "denial of service")
   List<double>? denialOfService;
+  @JsonKey(name: "external environment threats")
   List<double>? externalEnvironmentThreats;
+  @JsonKey(name: "insider threats")
   List<double>? insiderThreats;
   List<double>? malware;
   List<double>? phishing;
+  @JsonKey(name: "physical threats")
   List<double>? physicalThreats;
   List<double>? ransomware;
   List<double>? spam;
+  @JsonKey(name: "web application threats")
   List<double>? webApplicationThreats;
+  @JsonKey(name: "web-based threats")
   List<double>? webBasedThreats;
 
   ThreatDict(

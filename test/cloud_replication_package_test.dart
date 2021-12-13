@@ -151,7 +151,7 @@ void replicationTests() async {
     String data = "Demo";
     final keyVal = Enc.Key.fromLength(32);
     final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-    final iv = Enc.IV.fromLength(16);
+    final iv = Enc.IV.fromLength(32);
     Enc.Encrypted encrypted = enc.encrypt(data, iv: iv);
     print(encrypted.base64);
   });
@@ -263,6 +263,10 @@ void replicationTests() async {
         await storageController.get(':Local:Replication:LastReplication');
     print(updateRep);
     print(updateRepNode);
+    toolbox_api.Node threat =
+        await storageController.get(':Global:ThreatWeight');
+    print(threat);
+    print(await threat.getChildren());
   }, timeout: Timeout(Duration(minutes: 5)));
 
   /// CLOUD SERVICE TESTS
