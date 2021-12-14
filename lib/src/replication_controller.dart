@@ -1,6 +1,4 @@
-
 abstract class ReplicationController {
-
   Future<void> initGeigerStorage();
 
   Future<void> geigerReplication();
@@ -20,6 +18,6 @@ abstract class ReplicationController {
       String? expires,
       String? name,
       String? publicKey]);
-  
+
   Future<void> endGeigerStorage();
 }

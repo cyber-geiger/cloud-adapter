@@ -246,7 +246,7 @@ void replicationTests() async {
   test('Full Replication', () async {
     //toolbox_api.StorageController storageController = await init();
 
-    /// INIT STORAGE 
+    /// INIT STORAGE
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
     await rep.geigerReplication();

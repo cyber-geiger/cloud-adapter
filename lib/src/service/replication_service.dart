@@ -47,6 +47,7 @@ class ReplicationService implements ReplicationController {
   @override
   Future<void> geigerReplication() async {
     print('STARTING GEIGER REPLICATION');
+
     /// Follow diagram
     /// 3 steps replication
     /// Cloud to device
@@ -86,6 +87,7 @@ class ReplicationService implements ReplicationController {
       }
     } catch (e) {
       print('NO REPLICATION NODE - NO REPLICATION HAS BEEN DONE');
+
       /// FULL REPLICATION TAKES PLACE
       _fullRep = true;
       print(e);
@@ -141,7 +143,8 @@ class ReplicationService implements ReplicationController {
     if (_fullRep == true) {
       events = await cloud.getUserEvents(_username);
     } else {
-      var filter = DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(_fromDate);
+      var filter =
+          DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(_fromDate);
       events =
           await cloud.getUserEventsDateFilter(_username, filter.toString());
     }
@@ -154,7 +157,8 @@ class ReplicationService implements ReplicationController {
       if (owner != _username) {
         if (type.toLowerCase() == "keyvalue") {
           print('NO E2EE');
-          updateLocalNodeWithCloudEvent(singleOne);
+          toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
+          await updateLocalNodeWithCloudNode(node);
         }
         if (type.toLowerCase() == "user") {
           print('E2EE');
@@ -175,7 +179,9 @@ class ReplicationService implements ReplicationController {
             String decrypted = enc
                 .decrypt(singleOne.content.toString() as Enc.Encrypted, iv: iv);
             singleOne.setContent = decrypted.toString();
-            updateLocalNodeWithCloudEvent(singleOne);
+
+            toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
+            await updateLocalNodeWithCloudNode(node);
           } catch (e) {
             toolbox_api.StorageException('FAILURE GETTING KEYS FOR NODE: $id');
           }
@@ -261,7 +267,8 @@ class ReplicationService implements ReplicationController {
 
               final keyVal = Enc.Key.fromUtf8(decodedKey);
               final iv = Enc.IV.fromLength(16);
-              final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+              final enc =
+                  Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
 
               Enc.Encrypted encrypted =
                   enc.encrypt(await convertNodeToJsonString(sorted), iv: iv);
@@ -643,10 +650,10 @@ class ReplicationService implements ReplicationController {
     print("INIT GEIGER API");
     try {
       localMaster = (await getGeigerApi(
-        "",GeigerApi.masterId, Declaration.doNotShareData))!;
+          "", GeigerApi.masterId, Declaration.doNotShareData))!;
       print(localMaster);
       return localMaster;
-    } catch(e,s){
+    } catch (e, s) {
       print("ERROR FROM GEIGERAPI: $e, Stack: $s");
       throw toolbox_api.StorageException("ERROR");
     }
@@ -686,24 +693,25 @@ class ReplicationService implements ReplicationController {
     //print('[REPLICATION NODE] UPDATED');
   }
 
-  void updateLocalNodeWithCloudEvent(Event event) async {
+  Future<void> updateLocalNodeWithCloudNode(toolbox_api.Node eventNode) async {
     //print('CHECK NODES');
-    toolbox_api.Node _toCheck = convertJsonStringToNode(event.content!);
-    String _nodePath = _toCheck.path.toString();
+    //toolbox_api.Node _toCheck = convertJsonStringToNode(event.content!);
+    String _nodePath = eventNode.path.toString();
     try {
       toolbox_api.Node inLocal = await getNode(_nodePath);
       //CHECK TIMESTAMP
-      DateTime cloud = DateTime.parse(event.last_modified.toString());
+      DateTime cloud =
+          DateTime.fromMillisecondsSinceEpoch(eventNode.lastModified);
 
       DateTime local =
           DateTime.fromMillisecondsSinceEpoch(inLocal.lastModified);
       Duration _diff = local.difference(cloud);
-      if (_diff.inDays <= 0) {
-        await storageController.update(_toCheck);
+      if (_diff.inMilliseconds <= 0) {
+        await storageController.update(eventNode);
       }
     } catch (e) {
       //print('NODE NOT FOUND - CREATE ONE');
-      await storageController.add(_toCheck);
+      await storageController.add(eventNode);
     }
   }
 
@@ -715,7 +723,7 @@ class ReplicationService implements ReplicationController {
       DateTime local =
           DateTime.fromMillisecondsSinceEpoch(inLocal.lastModified);
       Duration _diff = local.difference(cloud);
-      if (_diff.inDays <= 0) {
+      if (_diff.inMilliseconds <= 0) {
         await storageController.update(node);
       }
     } catch (e) {
@@ -731,9 +739,9 @@ class ReplicationService implements ReplicationController {
     if (_fullRep == true) {
       freeEvents = await cloud.getTLPWhiteEvents();
     } else {
-      var filter = DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(_fromDate);
-      freeEvents =
-          await cloud.getTLPWhiteEventsDateFilter(filter.toString());
+      var filter =
+          DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(_fromDate);
+      freeEvents = await cloud.getTLPWhiteEventsDateFilter(filter.toString());
     }
     for (var free in freeEvents) {
       /// UUID WILL BE THE CLOUD ONE
