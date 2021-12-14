@@ -57,7 +57,7 @@ void replicationTests() async {
 
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
-    await rep.initGeigerStorage(storageController);
+    await rep.initGeigerStorage();
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
     CloudService cloud = CloudService();
@@ -97,7 +97,7 @@ void replicationTests() async {
 
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
-    await rep.initGeigerStorage(storageController);
+    await rep.initGeigerStorage();
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
     CloudService cloud = CloudService();
@@ -160,7 +160,7 @@ void replicationTests() async {
 
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
-    await rep.initGeigerStorage(storageController);
+    await rep.initGeigerStorage();
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
     CloudService cloud = CloudService();
@@ -222,7 +222,7 @@ void replicationTests() async {
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
     //ReplicationService ser = ReplicationService();
-    await rep.initGeigerStorage(storageController);
+    await rep.initGeigerStorage();
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
 
@@ -244,29 +244,30 @@ void replicationTests() async {
   });
 
   test('Full Replication', () async {
-    toolbox_api.StorageController storageController = await init();
+    //toolbox_api.StorageController storageController = await init();
 
-    /// INIT STORAGE WITH ALREADY GIVEN
+    /// INIT STORAGE 
     ReplicationController rep = ReplicationService();
-    await rep.initGeigerStorage(storageController);
+    await rep.initGeigerStorage();
     await rep.geigerReplication();
+    await rep.endGeigerStorage();
 
     ///GET REPLICATION TLP WHITE MISP NODES
-    toolbox_api.Node see = await storageController.get(":Global:misp");
+    /*toolbox_api.Node see = await storageController.get(":Global:misp");
     Map<String, toolbox_api.Node> demo = await see.getChildren();
-    print(demo);
+    print(demo);*/
 
     /// CHECK IF REPLICATION NODE HAS BEEN UPDATED
-    toolbox_api.Node updateRep =
+    /* toolbox_api.Node updateRep =
         await storageController.get(':Local:Replication:LastReplication');
     toolbox_api.Node updateRepNode =
-        await storageController.get(':Local:Replication:LastReplication');
-    print(updateRep);
+        await storageController.get(':Local:Replication:LastReplication');*/
+    /*print(updateRep);
     print(updateRepNode);
     toolbox_api.Node threat =
         await storageController.get(':Global:ThreatWeight');
     print(threat);
-    print(await threat.getChildren());
+    print(await threat.getChildren());*/
   }, timeout: Timeout(Duration(minutes: 5)));
 
   /// CLOUD SERVICE TESTS

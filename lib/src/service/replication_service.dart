@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'package:convert/convert.dart';
+import 'package:intl/intl.dart';
 import 'package:intl/locale.dart';
 
 import 'package:cloud_replication_package/src/cloud_models/user.dart';
@@ -14,6 +15,7 @@ import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
 import 'package:cloud_replication_package/src/service/cloud_service.dart';
 
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
+import 'package:geiger_api/geiger_api.dart';
 
 //import 'package:logging/logging.dart';
 
@@ -31,18 +33,20 @@ class ReplicationService implements ReplicationController {
 
   final cloud = CloudService();
 
+  /// GEIGER API
+  late final GeigerApi localMaster;
+
   /// Storage controller
-  late toolbox_api.StorageController storageController;
+  late final toolbox_api.StorageController storageController;
 
   /// Storage Listener
-  late toolbox_api.StorageListener storageListener;
+  late final toolbox_api.StorageListener storageListener;
 
   ReplicationService();
 
   @override
   Future<void> geigerReplication() async {
     print('STARTING GEIGER REPLICATION');
-
     /// Follow diagram
     /// 3 steps replication
     /// Cloud to device
@@ -65,9 +69,11 @@ class ReplicationService implements ReplicationController {
     try {
       toolbox_api.Node timeChecker =
           await getNode(':Local:Replication:LastReplication');
+      print(timeChecker);
       DateTime _lastTimestamp =
-          DateTime.fromMicrosecondsSinceEpoch(timeChecker.lastModified);
+          DateTime.fromMillisecondsSinceEpoch(timeChecker.lastModified);
       Duration _diff = _actual.difference(_lastTimestamp);
+      print(_diff);
       if (_diff.inDays > 30) {
         /// FULL REPLICATION TAKES PLACE
         print("FULL REPLICATION");
@@ -79,11 +85,11 @@ class ReplicationService implements ReplicationController {
         _fromDate = _lastTimestamp;
       }
     } catch (e) {
-      //print('NO REPLICATION NODE - NO REPLICATION HAS BEEN DONE');
+      print('NO REPLICATION NODE - NO REPLICATION HAS BEEN DONE');
       /// FULL REPLICATION TAKES PLACE
       _fullRep = true;
+      print(e);
     }
-
     // 2. GET USER DATA - CHECK USER IN CLOUD
     String _username;
     try {
@@ -135,8 +141,9 @@ class ReplicationService implements ReplicationController {
     if (_fullRep == true) {
       events = await cloud.getUserEvents(_username);
     } else {
+      var filter = DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(_fromDate);
       events =
-          await cloud.getUserEventsDateFilter(_username, _fromDate.toString());
+          await cloud.getUserEventsDateFilter(_username, filter.toString());
     }
     for (var userEvent in events) {
       Event singleOne = await cloud.getSingleUserEvent(_username, userEvent);
@@ -205,8 +212,8 @@ class ReplicationService implements ReplicationController {
     print(nodeList);
 
     /// SORT NODES BY TIMESTAMP
-    nodeList.sort((a, b) => DateTime.fromMicrosecondsSinceEpoch(a.lastModified)
-        .compareTo(DateTime.fromMicrosecondsSinceEpoch(b.lastModified)));
+    nodeList.sort((a, b) => DateTime.fromMillisecondsSinceEpoch(a.lastModified)
+        .compareTo(DateTime.fromMillisecondsSinceEpoch(b.lastModified)));
 
     /// GET ALL EVENTS OF A USER - THE NAME CAN BE ANYTHING
     /// UUID IS RECOMMENDED BUT NOT MANDATORY
@@ -242,54 +249,58 @@ class ReplicationService implements ReplicationController {
         Event toCheck = Event(id_event: uuid, tlp: tlp.toUpperCase());
         toCheck.encoding = 'ascii';
         print("visibility of node is TLP: " + tlp);
-        if (tlp.toLowerCase() == 'red') {
-          try {
-            toolbox_api.Node keys = await getNode(':Keys:$identifier');
-            final hexEncodedKey = keys.getValue('key').toString();
+        if (tlp.toLowerCase() != 'black') {
+          if (tlp.toLowerCase() == 'red') {
+            try {
+              toolbox_api.Node keys = await getNode(':Keys:$identifier');
+              final hexEncodedKey = keys.getValue('key').toString();
 
-            /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
-            final onlyKey = hexEncodedKey.split(':');
-            final String decodedKey = hex.decode(onlyKey[1]).toString();
+              /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
+              final onlyKey = hexEncodedKey.split(':');
+              final String decodedKey = hex.decode(onlyKey[1]).toString();
 
-            final keyVal = Enc.Key.fromUtf8(decodedKey);
-            final iv = Enc.IV.fromLength(16);
-            final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+              final keyVal = Enc.Key.fromUtf8(decodedKey);
+              final iv = Enc.IV.fromLength(16);
+              final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
 
-            Enc.Encrypted encrypted =
-                enc.encrypt(await convertNodeToJsonString(sorted), iv: iv);
-            toCheck.content = encrypted.toString();
-          } catch (e) {
-            toCheck.content = await convertNodeToJsonString(sorted);
-            toolbox_api.StorageException('FAILURE GETTING KEYS');
-          }
-          toCheck.type = 'user_object';
-        } else {
-          toCheck.type = 'keyvalue';
-          toCheck.content = await convertNodeToJsonString(sorted);
-        }
-        //CHECK IF EVENT IN CLOUD
-        try {
-          print("NODE RETRIEVED");
-          // IF OK
-          // CHECK TIMESTAMP
-          // IF NEEDED -> PUT
-          if (cloudNodeList.contains(sorted)) {
-            int index = cloudNodeList.indexOf(sorted);
-            DateTime toCompare = DateTime.fromMicrosecondsSinceEpoch(
-                cloudNodeList[index].lastModified);
-            DateTime nodeTime =
-                DateTime.fromMicrosecondsSinceEpoch(sorted.lastModified);
-            //AS IN CLOUD, COMPARE DATETIMES
-            Duration _diff = nodeTime.difference(toCompare);
-            if (_diff.inDays > 0) {
-              await cloud.updateEvent(_username, userEvents[index], toCheck);
+              Enc.Encrypted encrypted =
+                  enc.encrypt(await convertNodeToJsonString(sorted), iv: iv);
+              toCheck.content = encrypted.toString();
+            } catch (e) {
+              toCheck.content = await convertNodeToJsonString(sorted);
+              toolbox_api.StorageException('FAILURE GETTING KEYS');
             }
+            toCheck.type = 'user_object';
           } else {
+            toCheck.type = 'keyvalue';
+            toCheck.content = await convertNodeToJsonString(sorted);
+          }
+          //CHECK IF EVENT IN CLOUD
+          try {
+            print("NODE RETRIEVED");
+            // IF OK
+            // CHECK TIMESTAMP
+            // IF NEEDED -> PUT
+            if (cloudNodeList.contains(sorted)) {
+              int index = cloudNodeList.indexOf(sorted);
+              DateTime toCompare = DateTime.fromMillisecondsSinceEpoch(
+                  cloudNodeList[index].lastModified);
+              DateTime nodeTime =
+                  DateTime.fromMillisecondsSinceEpoch(sorted.lastModified);
+              //AS IN CLOUD, COMPARE DATETIMES
+              Duration _diff = nodeTime.difference(toCompare);
+              if (_diff.inDays > 0) {
+                await cloud.updateEvent(_username, userEvents[index], toCheck);
+              }
+            } else {
+              await cloud.createEvent(_username, toCheck);
+            }
+          } catch (e) {
+            // IF NO EVENT IS RETURNED -> POST NEW EVENT
             await cloud.createEvent(_username, toCheck);
           }
-        } catch (e) {
-          // IF NO EVENT IS RETURNED -> POST NEW EVENT
-          await cloud.createEvent(_username, toCheck);
+        } else {
+          print("BLACK NODES MUST NOT BE REPLICATED");
         }
       }
     }
@@ -606,8 +617,18 @@ class ReplicationService implements ReplicationController {
 
   /* INIT */
   @override
-  Future<toolbox_api.StorageController> initGeigerStorage(
-      toolbox_api.StorageController storage) async {
+  Future<void> initGeigerStorage() async {
+    print("INIT GEIGER STORAGE");
+    try {
+      GeigerApi api = await _initGeigerApi();
+      print(api);
+      storageController = api.getStorage()!;
+      print(storageController);
+    } catch (e) {
+      print("DATABASE CONNECTION ERROR FROM LOCALSTORAGE");
+      rethrow;
+    }
+    print("END INIT GEIGER STORAGE");
     //print('[REPLICATION] INIT GEIGER STORAGE');
     //WidgetsFlutterBinding.ensureInitialized();
 
@@ -615,13 +636,27 @@ class ReplicationService implements ReplicationController {
     //storageController = toolbox_api.GenericController('Cloud-Replication', toolbox_api.SqliteMapper('dbFileName.bd'));
     //return storageController = toolbox_api.GenericController(
     //'Cloud-Replication', toolbox_api.DummyMapper('Cloud-Replication'));
-    return storageController = storage;
+    //return storageController = storage;
+  }
+
+  Future<GeigerApi> _initGeigerApi() async {
+    print("INIT GEIGER API");
+    try {
+      localMaster = (await getGeigerApi(
+        "",GeigerApi.masterId, Declaration.doNotShareData))!;
+      print(localMaster);
+      return localMaster;
+    } catch(e,s){
+      print("ERROR FROM GEIGERAPI: $e, Stack: $s");
+      throw toolbox_api.StorageException("ERROR");
+    }
   }
 
   /*
   * GET ANY NODE -> BASED ON THE PATH
   */
   Future<toolbox_api.Node> getNode(String path) async {
+    print("GET TOOLBOX STORAGE NODE");
     toolbox_api.Node node = await storageController.get(path);
     return node;
   }
@@ -661,7 +696,7 @@ class ReplicationService implements ReplicationController {
       DateTime cloud = DateTime.parse(event.last_modified.toString());
 
       DateTime local =
-          DateTime.fromMicrosecondsSinceEpoch(inLocal.lastModified);
+          DateTime.fromMillisecondsSinceEpoch(inLocal.lastModified);
       Duration _diff = local.difference(cloud);
       if (_diff.inDays <= 0) {
         await storageController.update(_toCheck);
@@ -678,7 +713,7 @@ class ReplicationService implements ReplicationController {
     try {
       toolbox_api.Node inLocal = await getNode(path);
       DateTime local =
-          DateTime.fromMicrosecondsSinceEpoch(inLocal.lastModified);
+          DateTime.fromMillisecondsSinceEpoch(inLocal.lastModified);
       Duration _diff = local.difference(cloud);
       if (_diff.inDays <= 0) {
         await storageController.update(node);
@@ -696,8 +731,9 @@ class ReplicationService implements ReplicationController {
     if (_fullRep == true) {
       freeEvents = await cloud.getTLPWhiteEvents();
     } else {
+      var filter = DateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSS'Z'").format(_fromDate);
       freeEvents =
-          await cloud.getTLPWhiteEventsDateFilter(_fromDate.toString());
+          await cloud.getTLPWhiteEventsDateFilter(filter.toString());
     }
     for (var free in freeEvents) {
       /// UUID WILL BE THE CLOUD ONE
@@ -939,7 +975,7 @@ class ReplicationService implements ReplicationController {
     print("GET ALL NODES IN A RECURSIVE WAY");
     List<toolbox_api.Node> nodeList = [];
     try {
-      toolbox_api.Node root = await getNode(':');
+      toolbox_api.Node root = await getNode('');
       print(root);
       print("ROOT NODE JUST PRINTED");
       nodeList = await getRecursiveNodes(root, nodeList);
@@ -986,7 +1022,7 @@ class ReplicationService implements ReplicationController {
         a.lastModified.toString().compareTo(b.lastModified.toString()));
     for (var node in checkingData) {
       DateTime nodeTime =
-          DateTime.fromMicrosecondsSinceEpoch(node.lastModified);
+          DateTime.fromMillisecondsSinceEpoch(node.lastModified);
       Duration checker = actual.difference(nodeTime);
       if (checker.inDays > 180) {
         //REPLICATION TIMING STRATEGIES - DELETE NODE
@@ -1186,5 +1222,12 @@ class ReplicationService implements ReplicationController {
       throw ReplicationException(
           "[REPLICATION EXCEPTION] FAIL CONVERT NODE TO JSON STRING");
     }
+  }
+
+  @override
+  Future<void> endGeigerStorage() async {
+    flushGeigerApiCache();
+    await localMaster.zapState();
+    await localMaster.close();
   }
 }

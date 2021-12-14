@@ -10,8 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  geiger_localstorage: ^0.6.11
-  sqlite3_flutter_libs: ^0.5.1
+  #geiger_localstorage: ^0.6.11
+  geiger_api: ^0.5.5
+  #sqlite3_flutter_libs: ^0.5.1
   #sqlite3: ^1.2.0
   http: ^0.13.4
   json_annotation: ^4.1.0

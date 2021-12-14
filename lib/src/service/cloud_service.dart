@@ -200,6 +200,7 @@ class CloudService {
       final String eventUri = '/store/user/$userId/event';
       Uri url = Uri.parse(uri + eventUri);
       print(url);
+      print(fromTimestamp);
       HttpClient client = HttpClient()
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
@@ -208,6 +209,7 @@ class CloudService {
         url,
         headers: <String, String>{
           'accept': 'application/json',
+          'content-type': 'application/json',
           'modified_since': fromTimestamp,
         },
       );
