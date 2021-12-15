@@ -38,8 +38,8 @@ Future<toolbox_api.StorageController> initGeigerStorage() async {
 Future<GeigerApi> _initGeigerApi() async {
   print("INIT GEIGER API");
   try {
-    GeigerApi localMaster = (await getGeigerApi(
-        "", GeigerApi.masterId, Declaration.doShareData))!;
+    GeigerApi localMaster =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     print(localMaster);
     return localMaster;
   } catch (e, s) {
