@@ -20,6 +20,33 @@ import 'package:http/io_client.dart';
 //import 'package:intl/intl.dart';
 import 'package:test/test.dart';
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
+import 'package:geiger_api/geiger_api.dart';
+
+Future<toolbox_api.StorageController> initGeigerStorage() async {
+  print("INIT GEIGER STORAGE");
+  try {
+    GeigerApi api = await _initGeigerApi();
+    print(api);
+    toolbox_api.StorageController storageController = api.getStorage()!;
+    return storageController;
+  } catch (e) {
+    print("DATABASE CONNECTION ERROR FROM LOCALSTORAGE");
+    rethrow;
+  }
+}
+
+Future<GeigerApi> _initGeigerApi() async {
+  print("INIT GEIGER API");
+  try {
+    GeigerApi localMaster = (await getGeigerApi(
+        "", GeigerApi.masterId, Declaration.doShareData))!;
+    print(localMaster);
+    return localMaster;
+  } catch (e, s) {
+    print("ERROR FROM GEIGERAPI: $e, Stack: $s");
+    throw toolbox_api.StorageException("ERROR");
+  }
+}
 
 Future<toolbox_api.StorageController> init() async {
   //print('[REPLICATION] INIT GEIGER STORAGE');
@@ -53,7 +80,7 @@ void replicationTests() async {
   //final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
 
   test('Pair test', () async {
-    toolbox_api.StorageController storageController = await init();
+    toolbox_api.StorageController storageController = await initGeigerStorage();
 
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
@@ -71,17 +98,28 @@ void replicationTests() async {
     }
 
     /// Create a custom pairing agreement
-    toolbox_api.Node pairParent =
-        toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
-    await storageController.add(pairParent);
-    print("PAIRING PARENT NODE CREATED");
-    toolbox_api.Node pair =
-        toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
-    await storageController.add(pair);
-    print("PAIRING NODE CREATED");
+    try {
+      toolbox_api.Node pairParent =
+          await storageController.get(":Local:Pairing");
+      print("Pairing Parent Node Exist: " + pairParent.name.toString());
+    } catch (e) {
+      toolbox_api.Node pairParent =
+          toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
+      await storageController.add(pairParent);
+      print("PAIRING PARENT NODE CREATED");
+    }
+    try {
+      toolbox_api.Node pair =
+          await storageController.get(":Local:Pairing:$userId2");
+      print("Pairing Node Exist: " + pair.name.toString());
+    } catch (e) {
+      toolbox_api.Node pair =
+          toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
+      await storageController.add(pair);
+    }
     await rep.setPair(userId1, userId2);
     //GET MERGE FROM CLOUD
     List<String> userList = await cloud.getMergedAccounts(userId1);
@@ -93,7 +131,7 @@ void replicationTests() async {
   /// UNPAIR TEST
   test('Unpair Test', () async {
     /// RUN PAIRING TEST BEFORE
-    toolbox_api.StorageController storageController = await init();
+    toolbox_api.StorageController storageController = await initGeigerStorage();
 
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
@@ -111,24 +149,37 @@ void replicationTests() async {
     }
 
     /// Create a custom pairing agreement
-    toolbox_api.Node pairParent =
-        toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
-    await storageController.add(pairParent);
-    print("PAIRING PARENT NODE CREATED");
-    toolbox_api.Node pair =
-        toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
-    await storageController.add(pair);
-    print("PAIRING NODE CREATED");
+    try {
+      toolbox_api.Node pairParent =
+          await storageController.get(":Local:Pairing");
+      print("Pairing Parent Node Exist: " + pairParent.name.toString());
+    } catch (e) {
+      toolbox_api.Node pairParent =
+          toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
+      await storageController.add(pairParent);
+      print("PAIRING PARENT NODE CREATED");
+    }
+    try {
+      toolbox_api.Node pair =
+          await storageController.get(":Local:Pairing:$userId2");
+      print("Pairing Node Exist: " + pair.name.toString());
+    } catch (e) {
+      toolbox_api.Node pair =
+          toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
+      await storageController.add(pair);
+    }
+
+    /// Set pair method
     await rep.setPair(userId1, userId2);
     List<String> userList = await cloud.getMergedAccounts(userId1);
     if (userList.contains(userId2)) {
       print("HAS AGREEMENT");
     }
-    await rep.unpair(userId1, userId2);
 
+    await rep.unpair(userId1, userId2);
     try {
       List<String> userList2 = await cloud.getMergedAccounts(userId1);
       if (userList2.contains(userId2) == false) {
@@ -156,7 +207,7 @@ void replicationTests() async {
     print(encrypted.base64);
   });
   test('Share Nodes Test', () async {
-    toolbox_api.StorageController storageController = await init();
+    toolbox_api.StorageController storageController = await initGeigerStorage();
 
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
@@ -174,18 +225,30 @@ void replicationTests() async {
     }
 
     /// Create a custom pairing agreement
-    toolbox_api.Node pairParent =
-        toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
-    await storageController.add(pairParent);
-    print("PAIRING PARENT NODE CREATED");
-    toolbox_api.Node pair =
-        toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "both"));
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key",
-        "aes-256-cfb:703373367638792F423F4528482B4D6251655468576D5A7134743777217A2443"));
-    await storageController.add(pair);
-    print("PAIRING NODE CREATED");
+    try {
+      toolbox_api.Node pairParent =
+          await storageController.get(":Local:Pairing");
+      print("Pairing Parent Node Exist: " + pairParent.name.toString());
+    } catch (e) {
+      toolbox_api.Node pairParent =
+          toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
+      await storageController.add(pairParent);
+      print("PAIRING PARENT NODE CREATED");
+    }
+    try {
+      toolbox_api.Node pair =
+          await storageController.get(":Local:Pairing:$userId2");
+      print("Pairing Node Exist: " + pair.name.toString());
+    } catch (e) {
+      toolbox_api.Node pair =
+          toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key",
+          "aes-256-cfb:703373367638792F423F4528482B4D6251655468576D5A7134743777217A2443"));
+      await storageController.add(pair);
+    }
+
     await rep.setPair(userId1, userId2);
     //GET MERGE FROM CLOUD
     List<String> userList = await cloud.getMergedAccounts(userId1);
@@ -194,11 +257,14 @@ void replicationTests() async {
     }
 
     /// CREATE TWO DIFFERENT NODES FOR TESTING PURPOSES
-    toolbox_api.Node node1 = toolbox_api.NodeImpl(':Devices:demo', userId1);
-    node1.addValue(toolbox_api.NodeValueImpl("demo", "workds"));
-
-    ///node1.visibility = "AMBER" as toolbox_api.Visibility;
-    await storageController.add(node1);
+    try {
+      toolbox_api.Node node1 = await storageController.get(':Devices:demo');
+      print(node1.name);
+    } catch (e) {
+      toolbox_api.Node node1 = toolbox_api.NodeImpl(':Devices:demo', userId1);
+      node1.addValue(toolbox_api.NodeValueImpl("demo", "workds"));
+      await storageController.add(node1);
+    }
 
     /// GET NODE and PRINT
     toolbox_api.Node checker = await storageController.get(':Devices:demo');
@@ -215,9 +281,9 @@ void replicationTests() async {
       Event singleOne = await cloud.getSingleUserEvent(userId2, single);
       print(singleOne);
     }
-  });
+  }, timeout: Timeout(Duration(minutes: 5)));
   test('Get shared nodes', () async {
-    toolbox_api.StorageController storageController = await init();
+    toolbox_api.StorageController storageController = await initGeigerStorage();
 
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
@@ -227,24 +293,37 @@ void replicationTests() async {
     String userId2 = "replicationTest1";
 
     /// Create a custom pairing agreement
-    toolbox_api.Node pairParent =
-        toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
-    await storageController.add(pairParent);
-    toolbox_api.Node pair =
-        toolbox_api.NodeImpl(":Local:Pairing:$userId1", "Cloud-Replication");
+    try {
+      toolbox_api.Node pairParent =
+          await storageController.get(":Local:Pairing");
+      print(pairParent.name);
+    } catch (e) {
+      toolbox_api.Node pairParent =
+          toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
+      await storageController.add(pairParent);
+    }
+    try {
+      toolbox_api.Node pair =
+          await storageController.get(":Local:Pairing:$userId1");
+      print(pair.name);
+    } catch (e) {
+      toolbox_api.Node pair =
+          toolbox_api.NodeImpl(":Local:Pairing:$userId1", "Cloud-Replication");
 
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
-    pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
+      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key",
+          "aes-256-cfb:703373367638792F423F4528482B4D6251655468576D5A7134743777217A2443"));
 
-    //Map<String, toolbox_api.NodeValue> checker = await pair.getValues();
+      //Map<String, toolbox_api.NodeValue> checker = await pair.getValues();
+      await storageController.add(pair);
+    }
 
-    await storageController.add(pair);
     await rep.getSharedNodes(userId2, userId1);
-  });
+  }, timeout: Timeout(Duration(minutes: 5)));
 
   test('Full Replication', () async {
-    //toolbox_api.StorageController storageController = await init();
+    //toolbox_api.StorageController storageController = await initGeigerStorage();
 
     /// INIT STORAGE
     ReplicationController rep = ReplicationService();
@@ -272,12 +351,12 @@ void replicationTests() async {
 
   /// CLOUD SERVICE TESTS
   /// TEST OF EACH METHOD
-  test('merge Test', () async {
+  /*test('merge Test', () async {
     var cloud = CloudService();
     String idUser1 = "replicationTest";
     String idUser2 = "replicationTest1";
     await cloud.deleteMerged(idUser1, idUser2);
-  });
+  });*/
   /*test('create Event', () async {
     var cloud = CloudService();
     //TO GENERATE A NEW CLOUD UUID

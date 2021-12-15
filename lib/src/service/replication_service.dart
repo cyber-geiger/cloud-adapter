@@ -132,7 +132,7 @@ class ReplicationService implements ReplicationController {
     /// STORAGE LISTENER
     print("[5th FLOW] - LISTENER REPLICATION");
 
-    ///await storageListenerReplication(_username);
+    //await storageListenerReplication(_username);
   }
 
   Future<void> cloudToLocalReplication(String _username, DateTime _actual,
@@ -650,7 +650,7 @@ class ReplicationService implements ReplicationController {
     print("INIT GEIGER API");
     try {
       localMaster = (await getGeigerApi(
-          "", GeigerApi.masterId, Declaration.doNotShareData))!;
+          "", GeigerApi.masterId, Declaration.doShareData))!;
       print(localMaster);
       return localMaster;
     } catch (e, s) {
