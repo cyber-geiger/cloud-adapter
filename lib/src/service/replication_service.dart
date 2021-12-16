@@ -314,42 +314,60 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
-  Future<void> setPair(String userId1, String userId2) async {
-    /// stores merge agreement in the cloud
-    /// checks if local node exists
-    /// checks if cloud users exist
-    /// checks if already merged
-    /// userId1 - local user
-    /// userId2 - peer partner
+  Future<void> setPair(String userId1, String userId2, String agreement,
+      [String? publicKey, String? type]) async {
+    /// Check if both users in the cloud
+    /// second (remote) user should be created from the others device
+    bool user1Exists = await cloud.userExists(userId1);
+    if (user1Exists == false) {
+      /// CHECK IF LOCALLY WE DO HAVE MORE DATA
+      await cloud.createUser(userId1);
+    }
+
+    /// CREATES LOCAL PAIRING NODE
     try {
-      toolbox_api.Node agreement = await getNode(':Local:Pairing:$userId2');
-      String agreeType = await agreement
-          .getValue('agreement')
-          .then((value) => value!.getValue("en").toString());
-      String typo = await agreement
-          .getValue('type')
-          .then((value) => value!.getValue("en").toString());
-
-      /*String complementary;
-      if (agreeType == 'in') {
-        complementary = 'out';
-      } else if (agreeType == 'both') {
-        complementary = 'out';
-      } else if(agreeType == 'out') {
-        complementary = 'out';
-      } else {
-        throw ReplicationException('No agreement valid type defined');
-      }*/
-
-      /// check cloud users
-      bool user1Exists = await cloud.userExists(userId1);
-      if (user1Exists == false) {
-        await cloud.createUser(userId1);
+      toolbox_api.Node agreementNode = await getNode(':Local:Pairing:$userId2');
+      print("Node exists for the path:" + agreementNode.path.toString());
+      throw ReplicationException("Pairing node exist");
+    } catch (e) {
+      try {
+        toolbox_api.Node agreementParent = await getNode(':Local:Pairing');
+        print("Parent path exists: " + agreementParent.name.toString());
+      } catch (e) {
+        /// Create parent node
+        toolbox_api.Node agreementParent =
+            toolbox_api.NodeImpl(':Local:Pairing', 'ReplicationService');
+        await storageController.addOrUpdate(agreementParent);
       }
-      /*bool user2Exists = await cloud.userExists(userId2);
-      if (user2Exists == false) {
-        cloud.createUser(userId2);
-      }*/
+      toolbox_api.Node newAgreement =
+          toolbox_api.NodeImpl(':Local:Pairing:$userId2', 'ReplicationService');
+      newAgreement
+          .addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", agreement));
+      if (publicKey != null) {
+        newAgreement
+            .addOrUpdateValue(toolbox_api.NodeValueImpl("key", publicKey));
+      } else {
+        newAgreement.addOrUpdateValue(toolbox_api.NodeValueImpl("key", ""));
+      }
+      if (type != null) {
+        newAgreement.addOrUpdateValue(toolbox_api.NodeValueImpl("type", type));
+      } else {
+        newAgreement.addOrUpdateValue(toolbox_api.NodeValueImpl("type", ""));
+      }
+      await storageController.addOrUpdate(newAgreement);
+
+      /// REPLICATES INTO THE CLOUD WITH COMPLEMENTARY AGREEMENTS
+      String complementValue;
+      if (agreement == "in") {
+        complementValue = "out";
+      } else if (agreement == "out") {
+        complementValue = "in";
+      } else if (agreement == "both") {
+        complementValue = "both";
+      } else {
+        throw ReplicationException(
+            "Not valid agreement value. Choose between: {'in','out','both'}");
+      }
 
       /// check if mutual merge exists
       /// if one user agrees in - the other must agree out and vice versa
@@ -358,23 +376,23 @@ class ReplicationService implements ReplicationController {
       try {
         List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
         if (agreeUser1.contains(userId2) == false) {
-          await cloud.createMerge(userId1, userId2, agreeType, typo);
+          await cloud.createMerge(userId1, userId2, agreement, type);
+        } else {
+          print("CLOUD AGREEMENT ALREADY EXIST");
         }
       } catch (e) {
-        await cloud.createMerge(userId1, userId2, agreeType, typo);
+        await cloud.createMerge(userId1, userId2, agreement, type);
       }
-
-      /*try {
+      try {
         List<String> agreeUser2 = await cloud.getMergedAccounts(userId2);
-        if (agreeUser2.contains(userId1)==false) {
-          await cloud.createMerge(userId2, userId1, complementary);
+        if (agreeUser2.contains(userId1) == false) {
+          await cloud.createMerge(userId2, userId1, complementValue, type);
+        } else {
+          print("CLOUD AGREEMENT ALREADY EXIST");
         }
       } catch (e) {
-        await cloud.createMerge(userId2, userId1, complementary);
-      }*/
-    } catch (e) {
-      //print(e);
-      throw toolbox_api.StorageException('PAIRING NODE NOT FOUND');
+        await cloud.createMerge(userId2, userId1, complementValue, type);
+      }
     }
   }
 
@@ -1044,6 +1062,7 @@ class ReplicationService implements ReplicationController {
   @override
   Future<bool> checkConsent(toolbox_api.Node node, String username) async {
     bool consent = false;
+
     /// Return true while sendingMessage to the UI
     consent = true;
     return consent;

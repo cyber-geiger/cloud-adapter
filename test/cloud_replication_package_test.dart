@@ -1,9 +1,10 @@
 import 'dart:convert';
-//import 'package:convert/convert.dart';
+import 'package:convert/convert.dart';
 import 'dart:io';
 //import 'dart:math';
 // ignore: library_prefixes
 import 'package:cloud_replication_package/src/replication_exception.dart';
+// ignore: library_prefixes
 import 'package:encrypt/encrypt.dart' as Enc;
 
 //import 'package:cloud_replication_package/cloud_replication_package.dart';
@@ -80,8 +81,43 @@ void replicationTests() async {
   //late toolbox_api.StorageController storageController;
   //final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
 
-  test('Pair test', () async {
+  /*test('Encrypt a node', () async {
+    ReplicationService ser = ReplicationService();
+
     toolbox_api.StorageController storageController = await initGeigerStorage();
+    toolbox_api.Node encCheck =
+        toolbox_api.NodeImpl(":Local:anotherTest", "Cloud-Replication");
+    await storageController.addOrUpdate(encCheck);
+    toolbox_api.Node keyCheck =
+        toolbox_api.NodeImpl(":Keys:" + encCheck.name, "Cloud-Replication");
+    keyCheck.addOrUpdateValue(toolbox_api.NodeValueImpl("key",
+        "aes-256-cfb:703373367638792F423F4528482B4D6251655468576D5A7134743777217A2443"));
+    await storageController.addOrUpdate(keyCheck);
+
+    ///
+    toolbox_api.Node keys =
+        await storageController.get(':Keys:' + encCheck.name);
+    print(keys);
+    final hexEncodedKey = await keys
+        .getValue('key')
+        .then((value) => value!.getValue("en").toString());
+    print(hexEncodedKey);
+
+    /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
+    final onlyKey = hexEncodedKey.split(':');
+    final String decodedKey = hex.decode(onlyKey[1]).toString();
+    print(decodedKey);
+    final keyVal = Enc.Key.fromUtf8(decodedKey);
+    final iv = Enc.IV.fromLength(16);
+    final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+
+    String node = await ser.convertNodeToJsonString(encCheck);
+    Enc.Encrypted encrypted = enc.encrypt(node.toString(), iv: iv);
+    print(encrypted.toString());
+  }, timeout: Timeout(Duration(minutes: 5)));*/
+
+  test('Pair test', () async {
+    //toolbox_api.StorageController storageController = await initGeigerStorage();
 
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
@@ -89,39 +125,8 @@ void replicationTests() async {
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
     CloudService cloud = CloudService();
-    bool exist = await cloud.userExists(userId1);
-    if (exist == false) {
-      await cloud.createUser(userId1);
-    }
-    bool exist1 = await cloud.userExists(userId2);
-    if (exist1 == false) {
-      await cloud.createUser(userId2);
-    }
 
-    /// Create a custom pairing agreement
-    try {
-      toolbox_api.Node pairParent =
-          await storageController.get(":Local:Pairing");
-      print("Pairing Parent Node Exist: " + pairParent.name.toString());
-    } catch (e) {
-      toolbox_api.Node pairParent =
-          toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
-      await storageController.add(pairParent);
-      print("PAIRING PARENT NODE CREATED");
-    }
-    try {
-      toolbox_api.Node pair =
-          await storageController.get(":Local:Pairing:$userId2");
-      print("Pairing Node Exist: " + pair.name.toString());
-    } catch (e) {
-      toolbox_api.Node pair =
-          toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
-      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
-      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
-      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
-      await storageController.add(pair);
-    }
-    await rep.setPair(userId1, userId2);
+    await rep.setPair(userId1, userId2, "in", "demo", "peer");
     //GET MERGE FROM CLOUD
     List<String> userList = await cloud.getMergedAccounts(userId1);
     if (userList.contains(userId2)) {
@@ -140,41 +145,9 @@ void replicationTests() async {
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
     CloudService cloud = CloudService();
-    bool exist = await cloud.userExists(userId1);
-    if (exist == false) {
-      await cloud.createUser(userId1);
-    }
-    bool exist1 = await cloud.userExists(userId2);
-    if (exist1 == false) {
-      await cloud.createUser(userId2);
-    }
-
-    /// Create a custom pairing agreement
-    try {
-      toolbox_api.Node pairParent =
-          await storageController.get(":Local:Pairing");
-      print("Pairing Parent Node Exist: " + pairParent.name.toString());
-    } catch (e) {
-      toolbox_api.Node pairParent =
-          toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
-      await storageController.add(pairParent);
-      print("PAIRING PARENT NODE CREATED");
-    }
-    try {
-      toolbox_api.Node pair =
-          await storageController.get(":Local:Pairing:$userId2");
-      print("Pairing Node Exist: " + pair.name.toString());
-    } catch (e) {
-      toolbox_api.Node pair =
-          toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
-      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
-      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
-      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key", "exampleOfKey"));
-      await storageController.add(pair);
-    }
 
     /// Set pair method
-    await rep.setPair(userId1, userId2);
+    await rep.setPair(userId1, userId2, "in", "demo", "peer");
     List<String> userList = await cloud.getMergedAccounts(userId1);
     if (userList.contains(userId2)) {
       print("HAS AGREEMENT");
@@ -216,41 +189,7 @@ void replicationTests() async {
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
     CloudService cloud = CloudService();
-    bool exist = await cloud.userExists(userId1);
-    if (exist == false) {
-      await cloud.createUser(userId1);
-    }
-    bool exist1 = await cloud.userExists(userId2);
-    if (exist1 == false) {
-      await cloud.createUser(userId2);
-    }
-
-    /// Create a custom pairing agreement
-    try {
-      toolbox_api.Node pairParent =
-          await storageController.get(":Local:Pairing");
-      print("Pairing Parent Node Exist: " + pairParent.name.toString());
-    } catch (e) {
-      toolbox_api.Node pairParent =
-          toolbox_api.NodeImpl(":Local:Pairing", "Cloud-Replication");
-      await storageController.add(pairParent);
-      print("PAIRING PARENT NODE CREATED");
-    }
-    try {
-      toolbox_api.Node pair =
-          await storageController.get(":Local:Pairing:$userId2");
-      print("Pairing Node Exist: " + pair.name.toString());
-    } catch (e) {
-      toolbox_api.Node pair =
-          toolbox_api.NodeImpl(":Local:Pairing:$userId2", "Cloud-Replication");
-      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", "in"));
-      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("type", "peer"));
-      pair.addOrUpdateValue(toolbox_api.NodeValueImpl("key",
-          "aes-256-cfb:703373367638792F423F4528482B4D6251655468576D5A7134743777217A2443"));
-      await storageController.add(pair);
-    }
-
-    await rep.setPair(userId1, userId2);
+    await rep.setPair(userId1, userId2, "in", "demo", "peer");
     //GET MERGE FROM CLOUD
     List<String> userList = await cloud.getMergedAccounts(userId1);
     if (userList.contains(userId2)) {
@@ -356,13 +295,13 @@ void replicationTests() async {
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
 
-    toolbox_api.Node node = toolbox_api.NodeImpl(':Local:test','CloudReplication');
+    toolbox_api.Node node =
+        toolbox_api.NodeImpl(':Local:test', 'CloudReplication');
     await storageController.addOrUpdate(node);
     print(node);
     expect(() async => await rep.checkConsent(node, "replicationTest"),
-      throwsA(isA<ReplicationException>()));
+        throwsA(isA<ReplicationException>()));
   }, timeout: Timeout(Duration(minutes: 5)));
-
 
   /// CLOUD SERVICE TESTS
   /// TEST OF EACH METHOD
