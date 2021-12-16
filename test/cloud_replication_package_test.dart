@@ -116,11 +116,28 @@ void replicationTests() async {
     print(encrypted.toString());
   }, timeout: Timeout(Duration(minutes: 5)));*/
 
+  test('Check pair test', () async {
+    ReplicationController rep = ReplicationService();
+    await rep.initGeigerStorage();
+    String userId1 = "replicationTest";
+    String userId2 = "replicationTest1";
+    bool check = await rep.checkPairing(userId1, userId2);
+    print(check);
+    rep.endGeigerStorage();
+  });
+
   test('Pair test', () async {
-    //toolbox_api.StorageController storageController = await initGeigerStorage();
+    //ReplicationController rep = ReplicationService();
+    //await rep.endGeigerStorage();
+    toolbox_api.StorageController storageController = await initGeigerStorage();
+    toolbox_api.Node l = await storageController.get(":Devices");
+    print(await l.getChildren());
+    print(await storageController
+        .get(":Devices:8190499d-9794-41cd-bdc3-b6936279f26a"));
+    exit(0);
 
     /// INIT STORAGE WITH ALREADY GIVEN
-    ReplicationController rep = ReplicationService();
+    /*ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
@@ -131,7 +148,7 @@ void replicationTests() async {
     List<String> userList = await cloud.getMergedAccounts(userId1);
     if (userList.contains(userId2)) {
       print("HAS AGREEMENT");
-    }
+    }*/
   });
 
   /// UNPAIR TEST

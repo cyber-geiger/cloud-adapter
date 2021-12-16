@@ -314,6 +314,22 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
+  Future<bool> checkPairing(String userId1, String userId2) async {
+    bool checker = false;
+
+    /// Check if userId1 has an active agreement with userId2
+    try {
+      toolbox_api.Node agreementNode = await getNode(':Local:Pairing:$userId2');
+      print("Agreement exist: " + agreementNode.name);
+      checker = true;
+    } catch (e) {
+      print("PAIRING NODE NOT FOUND");
+      checker = false;
+    }
+    return checker;
+  }
+
+  @override
   Future<void> setPair(String userId1, String userId2, String agreement,
       [String? publicKey, String? type]) async {
     /// Check if both users in the cloud

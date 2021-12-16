@@ -7,6 +7,9 @@ abstract class ReplicationController {
   /// Achieves full or partial replication
   Future<void> geigerReplication();
 
+  /// Check if two users have an agreement
+  Future<bool> checkPairing(String userId1, String userId2);
+
   /// Call this function to create a pairing agreement in local and cloud
   /// userId: LocalUserId
   /// userId2: remoteUser
