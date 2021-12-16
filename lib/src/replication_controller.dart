@@ -1,3 +1,5 @@
+import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
+
 abstract class ReplicationController {
   Future<void> initGeigerStorage();
 
@@ -20,4 +22,6 @@ abstract class ReplicationController {
       String? publicKey]);
 
   Future<void> endGeigerStorage();
+
+  Future<bool> checkConsent(toolbox_api.Node node, String username);
 }

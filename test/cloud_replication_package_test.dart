@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 //import 'dart:math';
 // ignore: library_prefixes
+import 'package:cloud_replication_package/src/replication_exception.dart';
 import 'package:encrypt/encrypt.dart' as Enc;
 
 //import 'package:cloud_replication_package/cloud_replication_package.dart';
@@ -348,6 +349,20 @@ void replicationTests() async {
     print(threat);
     print(await threat.getChildren());*/
   }, timeout: Timeout(Duration(minutes: 5)));
+  test('First consent approach', () async {
+    toolbox_api.StorageController storageController = await initGeigerStorage();
+
+    /// INIT STORAGE WITH ALREADY GIVEN
+    ReplicationController rep = ReplicationService();
+    await rep.initGeigerStorage();
+
+    toolbox_api.Node node = toolbox_api.NodeImpl(':Local:test','CloudReplication');
+    await storageController.addOrUpdate(node);
+    print(node);
+    expect(() async => await rep.checkConsent(node, "replicationTest"),
+      throwsA(isA<ReplicationException>()));
+  }, timeout: Timeout(Duration(minutes: 5)));
+
 
   /// CLOUD SERVICE TESTS
   /// TEST OF EACH METHOD

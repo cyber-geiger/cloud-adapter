@@ -1041,31 +1041,80 @@ class ReplicationService implements ReplicationController {
     }
   }
 
+  @override
   Future<bool> checkConsent(toolbox_api.Node node, String username) async {
     bool consent = false;
-    String tlp = node.visibility.toValueString();
+    /// Return true while sendingMessage to the UI
+    consent = true;
+    return consent;
+    /*String tlp = node.visibility.toValueString();
     if (tlp.toLowerCase() == 'white') {
       consent = true;
     } else {
       //CHECK CONSENT
       try {
         //IF GET NODE - USER HAS NOT AGREED FOREVER - CONSENT FALSE
-        toolbox_api.Node consentNode = await getNode(':Consent:$username');
-        print(consentNode.path.toString());
-        consent = true;
+        toolbox_api.Node consentNode = await getNode(':Local:Consent:$username');
+        String consentValue = await consentNode
+          .getValue('consent')
+          .then((value) => value!.getValue("en").toString());
+        if (consentValue=='no_forever') {
+          return false;
+        } else if(consentValue == 'no_once' || consentValue == "once") {
+          /// If doen't agree once
+          /// ASK AGAIN
+          String consentData = "";
+          consentNode.addOrUpdateValue(toolbox_api.NodeValueImpl("consent", consentData));
+          await storageController.addOrUpdate(consentNode);
+          if (consentValue == 'no_forever') {
+            return false;
+          } else if(consentValue == 'no_once' || consentValue == 'once') {
+            toolbox_api.Visibility? visible =
+              toolbox_api.VisibilityExtension.valueOf("red");
+            if (visible != null) {
+              node.visibility = visible;
+            }
+            await storageController.update(node);
+            if (consentValue == 'once') {
+              return true;
+            } else {
+              return false;
+            }
+          } else {
+            throw ReplicationException("NOT MATCH CONSENT VALUE");
+          }
+        } else {
+          throw ReplicationException("NOT MATCH CONSENT VALUE");
+        }
       } catch (e) {
-        //No consent set.
-        //print('NEED TO ASK CONSENT');
-        //TBD - ASK USER FOR CONSENT - GENERAL CONSENT - USER BASED
-        //IF USER AGREE ONCE - Consent true & TLP RED - UPDATE NODE
-        //IF USER NOT AGREE FOREVER - Consent false CREATE CONSENT
-        //USER DOES NOT AGREE ONCE - Consent false & SET TLP RED - UPDATE NODE
-        //UNTIL CONSENT CLEAR - TRUE
-        consent = true;
+        print("CONSENT NODE NOT FOUND");
+        /// CREATE PARENT CONSENT NODE
+        toolbox_api.Node consentNode = toolbox_api.NodeImpl(':Local:Consent','ReplicationController');
+        await storageController.addOrUpdate(consentNode);
+        String consentData = "";
+        toolbox_api.Node userConsent = toolbox_api.NodeImpl(':Local:Consent:$username','ReplicationController');
+        userConsent.addOrUpdateValue(toolbox_api.NodeValueImpl("consent", consentData));
+        await storageController.addOrUpdate(userConsent);
+        if (consentData == 'no_forever') {
+          return false;
+        } else if(consentData == 'no_once' || consentData == 'once') {
+          toolbox_api.Visibility? visible =
+            toolbox_api.VisibilityExtension.valueOf("red");
+          if (visible != null) {
+            node.visibility = visible;
+          }
+          await storageController.update(node);
+          if (consentData == 'once') {
+            return true;
+          } else {
+            return false;
+          }
+        } else {
+          throw ReplicationException("NOT MATCH CONSENT VALUE");
+        }
       }
-      consent = true;
     }
-    return consent;
+    return consent;*/
   }
 
   /// if a user receives shared event but with different owner
