@@ -115,6 +115,11 @@ void replicationTests() async {
     Enc.Encrypted encrypted = enc.encrypt(node.toString(), iv: iv);
     print(encrypted.toString());
   }, timeout: Timeout(Duration(minutes: 5)));*/
+  test('Test Connection', () async {
+    ReplicationController rep = ReplicationService();
+    bool tester = await rep.checkConnection();
+    print(tester);
+  });
 
   test('Check pair test', () async {
     ReplicationController rep = ReplicationService();

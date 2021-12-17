@@ -45,6 +45,23 @@ class ReplicationService implements ReplicationController {
   ReplicationService();
 
   @override
+  Future<bool> checkConnection() async {
+    try {
+      /// CONNECTION WITH THE CLOUD
+      /// PROVIDE FINAL CLOUD URL
+      final response = await InternetAddress.lookup('37.48.101.252');
+      if (response.isNotEmpty) {
+        return true;
+      } else {
+        return false;
+      }
+    } on SocketException catch (e) {
+      print(e);
+      return false;
+    }
+  }
+
+  @override
   Future<bool> geigerReplication() async {
     print('STARTING GEIGER REPLICATION');
 

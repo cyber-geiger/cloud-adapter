@@ -1,6 +1,10 @@
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 
 abstract class ReplicationController {
+  /// Checks if the device is connected to the internet
+  /// If not - No replication possible
+  Future<bool> checkConnection();
+
   /// Inits the storageController through the GeigerAPI
   Future<void> initGeigerStorage();
 
