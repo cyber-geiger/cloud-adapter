@@ -14,21 +14,21 @@ abstract class ReplicationController {
   /// userId: LocalUserId
   /// userId2: remoteUser
   /// agreement: agreement value: {"in","out","both"}
-  Future<void> setPair(String userId1, String userId2, String agreement,
+  Future<bool> setPair(String userId1, String userId2, String agreement,
       [String? publicKey, String? type]);
 
   /// Removes both from the local and the cloud, the agreement
-  Future<void> unpair(String userId1, String userId2);
+  Future<bool> unpair(String userId1, String userId2);
 
   /// Places a node in the cloud encrypted
-  Future<void> shareNode(
+  Future<bool> shareNode(
       String nodePath, String senderUserId, String receiverUserId);
 
   /// Gets previously shared nodes and stores them in the localStorage
-  Future<void> getSharedNodes(String receiverUserId, String senderUserId);
+  Future<bool> getSharedNodes(String receiverUserId, String senderUserId);
 
   /// Creates a cloud user. Necesary for pairing & replication
-  Future<void> createCloudUser(String userId,
+  Future<bool> createCloudUser(String userId,
       [String? email,
       String? access,
       String? expires,

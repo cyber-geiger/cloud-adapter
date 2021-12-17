@@ -45,7 +45,7 @@ class ReplicationService implements ReplicationController {
   ReplicationService();
 
   @override
-  Future<void> geigerReplication() async {
+  Future<bool> geigerReplication() async {
     print('STARTING GEIGER REPLICATION');
 
     /// Follow diagram
@@ -113,7 +113,8 @@ class ReplicationService implements ReplicationController {
     } catch (e) {
       //print('Not user data retrieved');
       toolbox_api.StorageException('USER DATA NOT FOUND. ERROR');
-      exit(1);
+      print(e);
+      return false;
     }
     print(_username);
 
@@ -133,6 +134,7 @@ class ReplicationService implements ReplicationController {
     print("[5th FLOW] - LISTENER REPLICATION");
 
     //await storageListenerReplication(_username);
+    return true;
   }
 
   Future<void> cloudToLocalReplication(String _username, DateTime _actual,
@@ -330,7 +332,7 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
-  Future<void> setPair(String userId1, String userId2, String agreement,
+  Future<bool> setPair(String userId1, String userId2, String agreement,
       [String? publicKey, String? type]) async {
     /// Check if both users in the cloud
     /// second (remote) user should be created from the others device
@@ -344,7 +346,8 @@ class ReplicationService implements ReplicationController {
     try {
       toolbox_api.Node agreementNode = await getNode(':Local:Pairing:$userId2');
       print("Node exists for the path:" + agreementNode.path.toString());
-      throw ReplicationException("Pairing node exist");
+      return false;
+      //throw ReplicationException("Pairing node exist");
     } catch (e) {
       try {
         toolbox_api.Node agreementParent = await getNode(':Local:Pairing');
@@ -381,8 +384,10 @@ class ReplicationService implements ReplicationController {
       } else if (agreement == "both") {
         complementValue = "both";
       } else {
-        throw ReplicationException(
-            "Not valid agreement value. Choose between: {'in','out','both'}");
+        print("Not valid agreement value. Choose between: {'in','out','both'}");
+        return false;
+        //throw ReplicationException(
+        //"Not valid agreement value. Choose between: {'in','out','both'}");
       }
 
       /// check if mutual merge exists
@@ -410,10 +415,11 @@ class ReplicationService implements ReplicationController {
         await cloud.createMerge(userId2, userId1, complementValue, type);
       }
     }
+    return true;
   }
 
   @override
-  Future<void> unpair(String userId1, String userId2) async {
+  Future<bool> unpair(String userId1, String userId2) async {
     /// deletes local node exists
     /// deletes merge agreement in the cloud
     /// checks if cloud users exist
@@ -425,14 +431,17 @@ class ReplicationService implements ReplicationController {
     try {
       await storageController.delete(":Local:Pairing:$userId2");
     } catch (e) {
-      throw ReplicationException("Pairing Node not found");
+      print("Pairing Node not found");
+      return false;
+      //throw ReplicationException("Pairing Node not found");
     }
 
     /// check cloud users
     bool user1Exists = await cloud.userExists(userId1);
     if (user1Exists == false) {
-      throw ReplicationException(
-          '$userId1 does not exist in cloud. No unpair is possible.');
+      return false;
+      //throw ReplicationException(
+      //'$userId1 does not exist in cloud. No unpair is possible.');
     }
     /*bool user2Exists = await cloud.userExists(userId2);
     if (user2Exists == false) {
@@ -448,15 +457,19 @@ class ReplicationService implements ReplicationController {
           await cloud.deleteMerged(userId1, userId2);
         } catch (e) {
           print("SOMETHING WENT WRONG REP TEST");
-          throw ReplicationException('Cloud Exception: ' + e.toString());
+          return false;
+          //throw ReplicationException('Cloud Exception: ' + e.toString());
         }
       } else {
-        throw ReplicationException(
-            'No active agreement between $userId1 and $userId2');
+        return false;
+        //throw ReplicationException(
+        //'No active agreement between $userId1 and $userId2');
       }
     } catch (e) {
-      throw ReplicationException('No active agreements set for $userId1');
+      return false;
+      //throw ReplicationException('No active agreements set for $userId1');
     }
+    return true;
 
     /// check userId2 agreements
     /*try {
@@ -476,7 +489,7 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
-  Future<void> shareNode(
+  Future<bool> shareNode(
       String nodePath, String senderUserId, String receiverUserId) async {
     /// check local pairing
     /// check cloud pairing
@@ -542,19 +555,26 @@ class ReplicationService implements ReplicationController {
             }
             await cloud.createEvent(senderUserId, toPostEvent);
           } else {
-            throw CloudException('There is no active cloud agreement');
+            return false;
+            //throw CloudException('There is no active cloud agreement');
           }
         } catch (e) {
-          throw CloudException('There is no active cloud agreement');
+          return false;
+          //throw CloudException('There is no active cloud agreement');
         }
+        return true;
+      } else {
+        return false;
+        //return false;
       }
     } catch (e) {
-      throw ReplicationException('Key Node not found');
+      return false;
+      //throw ReplicationException('Key Node not found');
     }
   }
 
   @override
-  Future<void> getSharedNodes(
+  Future<bool> getSharedNodes(
       String receiverUserId, String senderUserId) async {
     /// get receiverNodes
     /// cloud API retrieves also the shared ones
@@ -630,16 +650,19 @@ class ReplicationService implements ReplicationController {
             }
           }
         } catch (e) {
-          throw CloudException('There is no active cloud agreement');
+          return false;
+          //throw CloudException('There is no active cloud agreement');
         }
       }
     } catch (e) {
-      throw toolbox_api.StorageException('Key Node not found');
+      return false;
+      //throw toolbox_api.StorageException('Key Node not found');
     }
+    return true;
   }
 
   @override
-  Future<void> createCloudUser(String userId,
+  Future<bool> createCloudUser(String userId,
       [String? email,
       String? access,
       String? expires,
@@ -647,8 +670,10 @@ class ReplicationService implements ReplicationController {
       String? publicKey]) async {
     try {
       await cloud.createUser(userId.toString());
+      return true;
     } catch (e) {
-      throw CloudException('Could not create cloud user with id: $userId');
+      return false;
+      //throw CloudException('Could not create cloud user with id: $userId');
     }
   }
 
