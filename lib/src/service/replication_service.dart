@@ -449,7 +449,7 @@ class ReplicationService implements ReplicationController {
     /// checks if cloud users exist
     /// checks if already merged
     /// userId1 - local user
-    /// userId2 - peer partner
+    /// userId2 - peer partner 
     /// if paired - remove 2 pairs
 
     try {
@@ -643,9 +643,9 @@ class ReplicationService implements ReplicationController {
               Event newEvent =
                   await cloud.getSingleUserEvent(receiverUserId, event);
               var owner = newEvent.getOwner;
-              if (owner != null) {
+             // if (owner != null) {
                 owner = owner.toString();
-                if (owner == senderUserId) {
+               // if (owner == senderUserId) {
                   Map<String, dynamic> data;
                   if (newEvent.content != null) {
                     try {
@@ -669,8 +669,8 @@ class ReplicationService implements ReplicationController {
                     print(newSharedNode);
                     await storageController.addOrUpdate(newSharedNode);
                   }
-                }
-              }
+               // }
+              //}
             }
           }
         } catch (e) {
