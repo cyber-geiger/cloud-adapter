@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'package:convert/convert.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/locale.dart';
 
@@ -231,7 +232,8 @@ class ReplicationService implements ReplicationController {
     List<toolbox_api.Node> nodeList = [];
     if (_fullRep == true) {
       /// FIND ALL THE NODES
-      nodeList = await getAllNodes();
+      nodeList.addAll(await getAllNodes());
+      //nodeList = await getAllNodes();
     } else {
       /// ASK FOR SEARCH CRITERIA NODE BASED
       //print('PARTIAL REPLICATION');
@@ -1070,7 +1072,7 @@ class ReplicationService implements ReplicationController {
       toolbox_api.Node root = await getNode('');
       print(root);
       print("ROOT NODE JUST PRINTED");
-      nodeList = await getRecursiveNodes(root, nodeList);
+      nodeList.addAll(await getRecursiveNodes(root, nodeList));
     } catch (e) {
       //print('Exception');
     }
@@ -1080,7 +1082,12 @@ class ReplicationService implements ReplicationController {
   Future<List<toolbox_api.Node>> getRecursiveNodes(
       toolbox_api.Node node, List<toolbox_api.Node> list) async {
     print("RECURSIVE METHOD");
-    list.add(node);
+    String dataPath = node.path.toString();
+    if (dataPath!=":" && dataPath!=":Users" && dataPath!=":Devices"
+     && dataPath!=":Enterprise" && dataPath!=":Keys" && dataPath!=":Global"
+      && dataPath!=":Local"){
+      list.add(node);
+    }
     Map<String, toolbox_api.Node> children = await node.getChildren();
     print("CHILDREN LIST");
     print(children);

@@ -320,9 +320,14 @@ void replicationTests() async {
     toolbox_api.Node node =
         toolbox_api.NodeImpl(':Local:test', 'CloudReplication');
     await storageController.addOrUpdate(node);
-    print(node);
-    expect(() async => await rep.checkConsent(node, "replicationTest"),
-        throwsA(isA<ReplicationException>()));
+    toolbox_api.Node node1 =
+        toolbox_api.NodeImpl(':Local:test:test1', 'CloudReplication');
+    await storageController.addOrUpdate(node1);
+    toolbox_api.Node node2 =
+        toolbox_api.NodeImpl(':Local:test', 'CloudReplication');
+    await storageController.addOrUpdate(node2);
+    toolbox_api.Node tryal = await storageController.get(':Local:test:test1');
+    print(tryal);
   }, timeout: Timeout(Duration(minutes: 5)));
 
   /// CLOUD SERVICE TESTS
