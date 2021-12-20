@@ -295,8 +295,8 @@ void replicationTests() async {
     ReplicationController rep = ReplicationService();
     //ReplicationService ser = ReplicationService();
     await rep.initGeigerStorage();
-    String userId1 = "replicationTest";
-    String userId2 = "replicationTest1";
+    String userId1 = "a396c2ed-59f4-4d2d-b86d-8e9b7bdb0bd0";
+    String userId2 = "547b7932-6e13-4dc2-9975-15ad24dcba10";
 
     /// Create a custom pairing agreement
     try {
@@ -326,6 +326,8 @@ void replicationTests() async {
     }
 
     await rep.getSharedNodes(userId2, userId1);
+    toolbox_api.Node tas = await storageController.get(':Users');
+    print(await tas.getChildren());
   }, timeout: Timeout(Duration(minutes: 5)));
 
   test('Full Replication', () async {

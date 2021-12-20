@@ -237,7 +237,7 @@ class ReplicationService implements ReplicationController {
     } else {
       /// ASK FOR SEARCH CRITERIA NODE BASED
       //print('PARTIAL REPLICATION');
-      nodeList = await getAllNodesLastModified(_fromDate);
+      nodeList.addAll(await getAllNodesLastModified(_fromDate));
     }
     print(nodeList);
 
@@ -279,7 +279,7 @@ class ReplicationService implements ReplicationController {
         String uuid = await cloud.generateUUID();
         Event toCheck = Event(id_event: uuid, tlp: tlp.toUpperCase());
         toCheck.encoding = 'ascii';
-        print("visibility of node is TLP: " + tlp);
+        print("VISIBILITY OF NODE IS TLP: " + tlp);
         if (tlp.toLowerCase() != 'black' && sorted.path.startsWith(':Local')==false && sorted.path.startsWith(':Global')==false) {
           if (tlp.toLowerCase() == 'red') {
             try {
@@ -322,12 +322,15 @@ class ReplicationService implements ReplicationController {
               //AS IN CLOUD, COMPARE DATETIMES
               Duration _diff = nodeTime.difference(toCompare);
               if (_diff.inDays > 0) {
+                print("UPDATE LOCAL NODE IN CLOUD");
                 await cloud.updateEvent(_username, userEvents[index], toCheck);
               }
             } else {
+              print("ADD LOCAL NODE TO CLOUD");
               await cloud.createEvent(_username, toCheck);
             }
           } catch (e) {
+            print("ADD LOCAL NODE TO CLOUD");
             // IF NO EVENT IS RETURNED -> POST NEW EVENT
             await cloud.createEvent(_username, toCheck);
           }
@@ -382,7 +385,7 @@ class ReplicationService implements ReplicationController {
         /// Create parent node
         toolbox_api.Node agreementParent =
             toolbox_api.NodeImpl(':Local:Pairing', 'ReplicationService');
-        await storageController.addOrUpdate(agreementParent);
+        await storageController.add(agreementParent);
       }
       toolbox_api.Node newAgreement =
           toolbox_api.NodeImpl(':Local:Pairing:$userId2', 'ReplicationService');
@@ -399,7 +402,7 @@ class ReplicationService implements ReplicationController {
       } else {
         newAgreement.addOrUpdateValue(toolbox_api.NodeValueImpl("type", ""));
       }
-      await storageController.addOrUpdate(newAgreement);
+      await storageController.add(newAgreement);
 
       /// REPLICATES INTO THE CLOUD WITH COMPLEMENTARY AGREEMENTS
       String complementValue;
@@ -669,8 +672,15 @@ class ReplicationService implements ReplicationController {
                     /// CREATE NODE
                     toolbox_api.Node newSharedNode =
                         convertJsonStringToNode(json.encode(data));
-                    print(newSharedNode);
-                    await storageController.addOrUpdate(newSharedNode);
+                    try {
+                      // CHECK IF NODE EXISTS
+                      toolbox_api.Node exists = await getNode(newSharedNode.path);
+                      print("NODE WITH PATH: " + exists.path);
+                      await storageController.update(newSharedNode);
+                    } catch (e) {
+                      print("PAIRED NODE DOES NOT EXIST");
+                      await storageController.addOrUpdate(newSharedNode);
+                    }
                   }
                // }
               //}
