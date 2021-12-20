@@ -438,7 +438,7 @@ class ReplicationService implements ReplicationController {
         await cloud.createMerge(userId2, userId1, complementValue, type);
       }
     }
-    await getSharedNodes(userId2, userId1);
+    await getSharedNodes(userId1, userId2);
     return true;
   }
 
@@ -898,6 +898,7 @@ class ReplicationService implements ReplicationController {
     }
     List<ThreatWeights> weights = await cloud.getThreatWeights();
     for (var weight in weights) {
+      print(weight.toJson());
       String? uuid = weight.idThreatweights;
       ThreatDict? data = weight.threatDict;
       if (uuid != null && data != null) {
