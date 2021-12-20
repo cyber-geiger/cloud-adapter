@@ -103,8 +103,7 @@ class ReplicationService implements ReplicationController {
         _fromDate = _lastTimestamp;
       }
     } catch (e) {
-      print('NO REPLICATION NODE - NO REPLICATION HAS BEEN DONE');
-
+      print('NO REPLICATION NODE FOUND - NO REPLICATION HAS BEEN DONE');
       /// FULL REPLICATION TAKES PLACE
       _fullRep = true;
       print(e);
@@ -156,6 +155,7 @@ class ReplicationService implements ReplicationController {
 
   Future<void> cloudToLocalReplication(String _username, DateTime _actual,
       DateTime _fromDate, bool _fullRep) async {
+    print("CLOUD TO LOCAL REPLICATION");
     /// WITH DATETIME TAKE EVENTS FROM THE CLOUD
     List<String> events;
     // FILTER BY DATE
@@ -173,14 +173,15 @@ class ReplicationService implements ReplicationController {
       //String tlp = singleOne.tlp.toString();
       String id = singleOne.id_event.toString();
       String owner = singleOne.owner.toString();
-      if (owner != _username) {
+      //if (owner != _username) {
         if (type.toLowerCase() == "keyvalue") {
-          print('NO E2EE');
+          print('CLOUD TO LOCAL REPLICATION - NO E2EE');
           toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
+          print(node);
           await updateLocalNodeWithCloudNode(node);
         }
-        if (type.toLowerCase() == "user") {
-          print('E2EE');
+        if (type.toLowerCase() == "user_object") {
+          print('CLOUD TO LOCAL REPLICATION - E2EE');
           //GET KEYS
           try {
             toolbox_api.Node keys = await getNode(':Keys:$id');
@@ -205,9 +206,10 @@ class ReplicationService implements ReplicationController {
             toolbox_api.StorageException('FAILURE GETTING KEYS FOR NODE: $id');
           }
         }
-      } else {
-        await updatePairedEvent(_username, singleOne);
-      }
+     // } else {
+       // print("PAIRED EVENT");
+     //   await updatePairedEvent(_username, singleOne);
+      //}
     }
 
     ///FETCH ALL TLP WHITE EVENTS - FREELY SHARED
@@ -222,6 +224,7 @@ class ReplicationService implements ReplicationController {
 
   Future<void> localToCloudReplication(String _username, DateTime _actual,
       DateTime _fromDate, bool _fullRep) async {
+    print("REPLICATION - LOCAL TO CLOUD NODES");
     /// START OF THE SECOND DIAGRAM
     /// START CLEANING DATA AND REMOVING TOMBSTONES
     cleanData(_actual);
@@ -234,7 +237,6 @@ class ReplicationService implements ReplicationController {
       //print('PARTIAL REPLICATION');
       nodeList = await getAllNodesLastModified(_fromDate);
     }
-    print(nodeList);
 
     /// SORT NODES BY TIMESTAMP
     nodeList.sort((a, b) => DateTime.fromMillisecondsSinceEpoch(a.lastModified)
@@ -262,6 +264,7 @@ class ReplicationService implements ReplicationController {
 
     if (nodeList.isEmpty == false) {
       for (var sorted in nodeList) {
+        print(sorted);
         /// CHECK TLP
         String tlp = sorted.visibility.toValueString();
         String identifier = sorted.name.toString();
@@ -274,7 +277,7 @@ class ReplicationService implements ReplicationController {
         Event toCheck = Event(id_event: uuid, tlp: tlp.toUpperCase());
         toCheck.encoding = 'ascii';
         print("visibility of node is TLP: " + tlp);
-        if (tlp.toLowerCase() != 'black') {
+        if (tlp.toLowerCase() != 'black' && sorted.path.startsWith(':Local')==false && sorted.path.startsWith(':Global')==false) {
           if (tlp.toLowerCase() == 'red') {
             try {
               toolbox_api.Node keys = await getNode(':Keys:$identifier');
@@ -294,7 +297,7 @@ class ReplicationService implements ReplicationController {
               toCheck.content = encrypted.toString();
             } catch (e) {
               toCheck.content = await convertNodeToJsonString(sorted);
-              toolbox_api.StorageException('FAILURE GETTING KEYS');
+              print('FAILURE GETTING KEYS');
             }
             toCheck.type = 'user_object';
           } else {
@@ -326,16 +329,19 @@ class ReplicationService implements ReplicationController {
             await cloud.createEvent(_username, toCheck);
           }
         } else {
-          print("BLACK NODES MUST NOT BE REPLICATED");
+          print("LOCAL NODE NOT BE REPLICATED: ");
+          print(sorted.path);
+          print(sorted.visibility.toValueString());
+          print("BLACK NODES - LOCAL NODES - GLOBAL NODES -  MUST NOT BE REPLICATED FROM LOCAL TO CLOUD");
         }
       }
     }
+    print("END LOCAL TO CLOUD REPLICATION");
   }
 
   @override
   Future<bool> checkPairing(String userId1, String userId2) async {
     bool checker = false;
-
     /// Check if userId1 has an active agreement with userId2
     try {
       toolbox_api.Node agreementNode = await getNode(':Local:Pairing:$userId2');
@@ -432,6 +438,7 @@ class ReplicationService implements ReplicationController {
         await cloud.createMerge(userId2, userId1, complementValue, type);
       }
     }
+    await getSharedNodes(userId2, userId1);
     return true;
   }
 
@@ -1086,7 +1093,7 @@ class ReplicationService implements ReplicationController {
 
   Future<List<toolbox_api.Node>> getAllNodesLastModified(
       DateTime filter) async {
-    String lastModified = filter.microsecondsSinceEpoch.toString();
+    String lastModified = filter.millisecondsSinceEpoch.toString();
     toolbox_api.SearchCriteria criteria =
         toolbox_api.SearchCriteria(nodeValueLastModified: lastModified);
     List<toolbox_api.Node> nodeList = await storageController.search(criteria);
@@ -1094,7 +1101,7 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<void> cleanData(DateTime actual) async {
-    //print('REMOVE DATA - 180 DAYS LIMIT');
+    print('TIMING STRATEGY - REMOVE DATA - 180 DAYS LIMIT');
 
     /// COMPLETE
     /// RECURSIVE WAY
@@ -1111,8 +1118,8 @@ class ReplicationService implements ReplicationController {
       if (checker.inDays > 180) {
         //REPLICATION TIMING STRATEGIES - DELETE NODE
         String path = node.path.toString();
-        storageController.delete(path);
-        //print('NODE WITH PATH $path HAS BEEN REMOVED');
+        await storageController.delete(path);
+        print('NODE WITH PATH $path HAS BEEN REMOVED');
       }
     }
   }
