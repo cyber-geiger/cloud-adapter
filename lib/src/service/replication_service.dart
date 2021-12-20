@@ -239,6 +239,7 @@ class ReplicationService implements ReplicationController {
       //print('PARTIAL REPLICATION');
       nodeList = await getAllNodesLastModified(_fromDate);
     }
+    print(nodeList);
 
     /// SORT NODES BY TIMESTAMP
     nodeList.sort((a, b) => DateTime.fromMillisecondsSinceEpoch(a.lastModified)
@@ -1069,12 +1070,16 @@ class ReplicationService implements ReplicationController {
     print("GET ALL NODES IN A RECURSIVE WAY");
     List<toolbox_api.Node> nodeList = [];
     try {
-      toolbox_api.Node root = await getNode('');
-      print(root);
-      print("ROOT NODE JUST PRINTED");
-      nodeList.addAll(await getRecursiveNodes(root, nodeList));
+      toolbox_api.Node root1 = await getNode(':Devices');
+      await getRecursiveNodes(root1, nodeList); 
+      toolbox_api.Node root2 = await getNode(':Users');
+      await getRecursiveNodes(root2, nodeList); 
+      toolbox_api.Node root3 = await getNode(':Keys');
+      await getRecursiveNodes(root3, nodeList); 
+      toolbox_api.Node root4 = await getNode(':Enterprise');
+      await getRecursiveNodes(root4, nodeList); 
     } catch (e) {
-      //print('Exception');
+      print(e);
     }
     return nodeList;
   }
@@ -1083,19 +1088,19 @@ class ReplicationService implements ReplicationController {
       toolbox_api.Node node, List<toolbox_api.Node> list) async {
     print("RECURSIVE METHOD");
     String dataPath = node.path.toString();
+    print(dataPath);
     if (dataPath!=":" && dataPath!=":Users" && dataPath!=":Devices"
      && dataPath!=":Enterprise" && dataPath!=":Keys" && dataPath!=":Global"
       && dataPath!=":Local"){
+        print("NODE THAT CAN BE ADDED");
       list.add(node);
     }
     Map<String, toolbox_api.Node> children = await node.getChildren();
-    print("CHILDREN LIST");
-    print(children);
-    children.forEach((key, value) async {
-      print(key);
-      print(value);
-      list = await getRecursiveNodes(value, list);
-    });
+    if (children.isNotEmpty){
+      for(var value in children.values) {
+        list = await getRecursiveNodes(value, list);
+      }
+    }
     return list;
   }
 

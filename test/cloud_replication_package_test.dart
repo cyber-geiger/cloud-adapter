@@ -24,6 +24,45 @@ import 'package:test/test.dart';
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 import 'package:geiger_api/geiger_api.dart';
 
+
+  Future<List<toolbox_api.Node>> getAllNodes(toolbox_api.StorageController sto ) async {
+    print("GET ALL NODES IN A RECURSIVE WAY");
+    List<toolbox_api.Node> nodeList = [];
+    try {
+      toolbox_api.Node root1 = await sto.get(':Devices');
+      await getRecursiveNodes(sto,root1, nodeList); 
+      toolbox_api.Node root2 = await sto.get(':Users');
+      await getRecursiveNodes(sto,root2, nodeList); 
+      toolbox_api.Node root3 = await sto.get(':Keys');
+      await getRecursiveNodes(sto,root3, nodeList); 
+      toolbox_api.Node root4 = await sto.get(':Enterprise');
+      await getRecursiveNodes(sto,root4, nodeList); 
+    } catch (e) {
+      print(e);
+    }
+    return nodeList;
+  }
+
+  Future<List<toolbox_api.Node>> getRecursiveNodes(toolbox_api.StorageController sto,
+      toolbox_api.Node node, List<toolbox_api.Node> list) async {
+    print("RECURSIVE METHOD");
+    String dataPath = node.path.toString();
+    print(dataPath);
+    if (dataPath!=":" && dataPath!=":Users" && dataPath!=":Devices"
+     && dataPath!=":Enterprise" && dataPath!=":Keys" && dataPath!=":Global"
+      && dataPath!=":Local"){
+        print("NODE THAT CAN BE ADDED");
+      list.add(node);
+    }
+    Map<String, toolbox_api.Node> children = await node.getChildren();
+    if (children.isNotEmpty){
+      for(var value in children.values) {
+        list = await getRecursiveNodes(sto,value, list);
+      }
+    }
+    return list;
+  }
+
 Future<toolbox_api.StorageController> initGeigerStorage() async {
   print("INIT GEIGER STORAGE");
   try {
@@ -115,6 +154,11 @@ void replicationTests() async {
     Enc.Encrypted encrypted = enc.encrypt(node.toString(), iv: iv);
     print(encrypted.toString());
   }, timeout: Timeout(Duration(minutes: 5)));*/
+  test('Get all nodes', () async {
+    toolbox_api.StorageController storageController = await initGeigerStorage();
+    List<toolbox_api.Node> n = await getAllNodes(storageController);
+    print(n);
+  });
   test('Test Connection', () async {
     ReplicationController rep = ReplicationService();
     bool tester = await rep.checkConnection();
@@ -316,6 +360,7 @@ void replicationTests() async {
     /// INIT STORAGE WITH ALREADY GIVEN
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
+
 
     toolbox_api.Node node =
         toolbox_api.NodeImpl(':Local:test', 'CloudReplication');
