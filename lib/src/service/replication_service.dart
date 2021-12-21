@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'package:convert/convert.dart';
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/locale.dart';
 
@@ -643,9 +642,8 @@ class ReplicationService implements ReplicationController {
               Event newEvent =
                   await cloud.getSingleUserEvent(receiverUserId, event);
               var owner = newEvent.getOwner;
-             // if (owner != null) {
-                owner = owner.toString();
-               // if (owner == senderUserId) {
+              if (owner != null) {
+                if (owner == senderUserId) {
                   Map<String, dynamic> data;
                   if (newEvent.content != null) {
                     try {
@@ -677,8 +675,8 @@ class ReplicationService implements ReplicationController {
                       await storageController.addOrUpdate(newSharedNode);
                     }
                   }
-               // }
-              //}
+                }
+              }
             }
           }
         } catch (e) {
