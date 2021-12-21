@@ -117,6 +117,55 @@ Future<String> generateUUID() async {
 }
 
 void replicationTests() async {
+  test("SEARCH CRITERIA", () async {
+    GeigerApi localMaster =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.Node n = toolbox_api.NodeImpl(":Local:demo1", "checker");
+    //await storageController.add(n);
+    toolbox_api.Node m = toolbox_api.NodeImpl(":Devices:demo1", "checker");
+    //await storageController.add(m);
+
+    toolbox_api.SearchCriteria criteria =
+        toolbox_api.SearchCriteria();
+    List<toolbox_api.Node> nodeList = await storageController.search(criteria);
+    print("-----------------");
+    for (var entry in nodeList) {
+      print(entry);
+      if (entry.owner == "checker") {
+        print("CHECKER");
+        await storageController.delete(entry.path);
+      }
+    }
+  });
+  test('addOrUpdateTest', () async {
+    GeigerApi localMaster =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    try {
+      toolbox_api.Node first = await storageController.get(':Devices:newTestNode');
+      print(first);
+    } catch (e) {
+      print("CATCH - Node not found");
+      toolbox_api.Node nodeToAdd = toolbox_api.NodeImpl(':Devices:newTestNode', '');
+      await storageController.addOrUpdate(nodeToAdd);
+    }
+    try {
+      toolbox_api.Node checker = await storageController.get(':Devices:newTestNode');
+      print(checker);
+    } catch (e) {
+      print("NODE HAS NOT BEEN ADDED");
+    }
+    toolbox_api.Node nodeToAdd = toolbox_api.NodeImpl(':Devices:newTestNode', '');
+    nodeToAdd.addValue(toolbox_api.NodeValueImpl("demo", "demoTest"));
+    await storageController.addOrUpdate(nodeToAdd);
+    try {
+      toolbox_api.Node checker = await storageController.get(':Devices:newTestNode');
+      print(checker);
+    } catch (e) {
+      print("NODE HAS NOT BEEN ADDED");
+    }
+  });
   //late toolbox_api.StorageController storageController;
   //final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
 
@@ -211,14 +260,16 @@ void replicationTests() async {
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
     CloudService cloud = CloudService();
-
+    await storageController.delete(':Local:Pairing:replicationTest1');
+    cloud.createUser(userId2);
     /// Set pair method
     await rep.setPair(userId1, userId2, "in", "demo", "peer");
     List<String> userList = await cloud.getMergedAccounts(userId1);
     if (userList.contains(userId2)) {
       print("HAS AGREEMENT");
     }
-
+    toolbox_api.Node nodeDemo = toolbox_api.NodeImpl(":Devices:tryal", userId2);
+    await storageController.add(nodeDemo);
     await rep.unpair(userId1, userId2);
     try {
       List<String> userList2 = await cloud.getMergedAccounts(userId1);
@@ -228,7 +279,12 @@ void replicationTests() async {
     } catch (e) {
       print("AGREEMENT REMOVED");
     }
-
+    try {
+      toolbox_api.Node c = await storageController.get(":Devices:tryal");
+      print(c);
+    } catch (e) {
+      print("NONE");
+    }
     /// CHECK IF LOCAL NODE EXISTS
     try {
       toolbox_api.Node node =

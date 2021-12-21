@@ -179,7 +179,7 @@ class ReplicationService implements ReplicationController {
           print('CLOUD TO LOCAL REPLICATION - NO E2EE');
           toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
           print(node);
-          await updateLocalNodeWithCloudNode(node);
+          await updateLocalNodeWithCloudNode(node, _username);
         }
         if (type.toLowerCase() == "user_object") {
           print('CLOUD TO LOCAL REPLICATION - E2EE');
@@ -202,7 +202,7 @@ class ReplicationService implements ReplicationController {
             singleOne.setContent = decrypted.toString();
 
             toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
-            await updateLocalNodeWithCloudNode(node);
+            await updateLocalNodeWithCloudNode(node, _username);
           } catch (e) {
             toolbox_api.StorageException('FAILURE GETTING KEYS FOR NODE: $id');
           }
@@ -307,6 +307,7 @@ class ReplicationService implements ReplicationController {
             toCheck.type = 'keyvalue';
             toCheck.content = await convertNodeToJsonString(sorted);
           }
+          toCheck.owner = _username;
           //CHECK IF EVENT IN CLOUD
           try {
             print("NODE RETRIEVED");
@@ -363,6 +364,7 @@ class ReplicationService implements ReplicationController {
   @override
   Future<bool> setPair(String userId1, String userId2, String agreement,
       [String? publicKey, String? type]) async {
+      print("START SET PAIR METHOD");
     /// Check if both users in the cloud
     /// second (remote) user should be created from the others device
     bool user1Exists = await cloud.userExists(userId1);
@@ -450,35 +452,30 @@ class ReplicationService implements ReplicationController {
 
   @override
   Future<bool> unpair(String userId1, String userId2) async {
+    print("START UNPAIR METHOD");
     /// deletes local node exists
     /// deletes merge agreement in the cloud
     /// checks if cloud users exist
     /// checks if already merged
     /// userId1 - local user
     /// userId2 - peer partner 
-    /// if paired - remove 2 pairs
 
     try {
       await storageController.delete(":Local:Pairing:$userId2");
     } catch (e) {
       print("Pairing Node not found");
       return false;
-      //throw ReplicationException("Pairing Node not found");
     }
 
     /// check cloud users
     bool user1Exists = await cloud.userExists(userId1);
     if (user1Exists == false) {
+      print("User not in cloud");
       return false;
-      //throw ReplicationException(
-      //'$userId1 does not exist in cloud. No unpair is possible.');
     }
-    /*bool user2Exists = await cloud.userExists(userId2);
-    if (user2Exists == false) {
-      throw ReplicationException('$userId2 does not exist in cloud. No unpair is possible.');
-    }*/
 
     /// check userId1 agreements
+    /// if contains agreement with userId2 - delete
     try {
       List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
       if (agreeUser1.contains(userId2) == true) {
@@ -488,34 +485,31 @@ class ReplicationService implements ReplicationController {
         } catch (e) {
           print("SOMETHING WENT WRONG REP TEST");
           return false;
-          //throw ReplicationException('Cloud Exception: ' + e.toString());
         }
       } else {
         return false;
-        //throw ReplicationException(
-        //'No active agreement between $userId1 and $userId2');
       }
     } catch (e) {
       return false;
-      //throw ReplicationException('No active agreements set for $userId1');
+    }
+
+    /// LOOK FOR USERID2 OWNED NODES
+    /// CREATE A SEARCH CRITERIA
+    toolbox_api.SearchCriteria criteria =
+        toolbox_api.SearchCriteria();
+    List<toolbox_api.Node> nodeList = await storageController.search(criteria);
+    print(nodeList);
+    for (var delete in nodeList) {
+      if (delete.owner == userId2) {
+        try {
+          await storageController.delete(delete.path);
+        } catch (e) {
+          print("FAILURE REMOVING PAIRED NODE");
+          return false;
+        }
+      }
     }
     return true;
-
-    /// check userId2 agreements
-    /*try {
-      List<String> agreeUser2 = await cloud.getMergedAccounts(userId2);
-      if (agreeUser2.contains(userId1)==true) {
-        try {
-          await cloud.deleteMerged(userId2, userId1);
-        } catch (e) {
-          throw ReplicationException('Cloud Exception: ' + e.toString());
-        }
-      } else {
-        throw ReplicationException('No active agreement between $userId2 and $userId1');
-      }
-    } catch (e) {
-      throw ReplicationException('No active agreements set for $userId2');
-    }*/
   }
 
   @override
@@ -672,6 +666,7 @@ class ReplicationService implements ReplicationController {
                     /// CREATE NODE
                     toolbox_api.Node newSharedNode =
                         convertJsonStringToNode(json.encode(data));
+                    newSharedNode.owner = owner;
                     try {
                       // CHECK IF NODE EXISTS
                       toolbox_api.Node exists = await getNode(newSharedNode.path);
@@ -789,7 +784,7 @@ class ReplicationService implements ReplicationController {
     //print('[REPLICATION NODE] UPDATED');
   }
 
-  Future<void> updateLocalNodeWithCloudNode(toolbox_api.Node eventNode) async {
+  Future<void> updateLocalNodeWithCloudNode(toolbox_api.Node eventNode, String username) async {
     //print('CHECK NODES');
     //toolbox_api.Node _toCheck = convertJsonStringToNode(event.content!);
     String _nodePath = eventNode.path.toString();
@@ -803,10 +798,12 @@ class ReplicationService implements ReplicationController {
           DateTime.fromMillisecondsSinceEpoch(inLocal.lastModified);
       Duration _diff = local.difference(cloud);
       if (_diff.inMilliseconds <= 0) {
+        eventNode.owner = username;
         await storageController.update(eventNode);
       }
     } catch (e) {
       //print('NODE NOT FOUND - CREATE ONE');
+      eventNode.owner = username;
       await storageController.add(eventNode);
     }
   }
