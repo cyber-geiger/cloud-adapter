@@ -672,7 +672,7 @@ class ReplicationService implements ReplicationController {
                       await storageController.update(newSharedNode);
                     } catch (e) {
                       print("PAIRED NODE DOES NOT EXIST");
-                      await storageController.addOrUpdate(newSharedNode);
+                      await storageController.add(newSharedNode);
                     }
                   }
                 }
