@@ -117,6 +117,58 @@ Future<String> generateUUID() async {
 }
 
 void replicationTests() async {
+  test('Delete Node Test', () async {
+    GeigerApi localMaster =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    /// CREATE A NODE AND DELETE IT
+    toolbox_api.Node node = toolbox_api.NodeImpl(':Local:deleteNode', 'owner');
+    await storageController.add(node);
+    print(node.owner);
+    if (node.owner != 'owner') {
+      await storageController.delete(node.path);
+    }
+    try {
+      toolbox_api.Node n1 = await storageController.get(':Local:deleteNode');
+      print(n1);
+    } catch (e) {
+      print(e);
+    }
+    try {
+      await storageController.delete(node.path);
+    } catch (e) {
+      print("LETS SEE");
+      print(e);
+    }
+    
+  });
+  test('multiple pairing', () async {
+    GeigerApi localMaster =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    // REMOVE PAIRING NODES
+    await storageController.delete(':Local:Pairing:a6517751-9d5d-411a-ac4a-2295974df6f5');
+    await storageController.delete(':Local:Pairing:c982e7c0-6554-4d77-b895-8af7e6d872cd');
+    toolbox_api.Node node = await storageController.get(":Devices");
+    print(await node.getChildren());
+    toolbox_api.Node local = await storageController.get(':Local');
+    String _localUser = await local
+        .getValue('currentUser')
+        .then((value) => value!.getValue("en").toString());
+
+    ReplicationController rep = ReplicationService();
+    await rep.initGeigerStorage();
+    await rep.setPair(_localUser, "a6517751-9d5d-411a-ac4a-2295974df6f5", 'both');
+    await rep.setPair(_localUser, "c982e7c0-6554-4d77-b895-8af7e6d872cd", 'both');
+    toolbox_api.Node nod1e = await storageController.get(":Devices");
+    print("---------------------");
+    print(await nod1e.getChildren());
+    await rep.unpair(_localUser, "a6517751-9d5d-411a-ac4a-2295974df6f5");
+    print("---------------------");
+    toolbox_api.Node nod2e = await storageController.get(":Devices");
+    print(await nod2e.getChildren());
+    await rep.endGeigerStorage();
+  }, timeout: Timeout(Duration(minutes: 5)));
   test("SEARCH CRITERIA", () async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;

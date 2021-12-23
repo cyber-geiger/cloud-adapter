@@ -8,6 +8,11 @@ abstract class ReplicationController {
   /// Inits the storageController through the GeigerAPI
   Future<void> initGeigerStorage();
 
+  /// FOR DEV PURPOSES. CHECK IF REPLICATION HAS TOOK PLACE
+  /// returns true if replication has been done
+  /// else returns false
+  Future<bool> checkReplication();
+
   /// Achieves full or partial replication
   Future<void> geigerReplication();
 
@@ -20,6 +25,9 @@ abstract class ReplicationController {
   /// agreement: agreement value: {"in","out","both"}
   Future<bool> setPair(String userId1, String userId2, String agreement,
       [String? publicKey, String? type]);
+
+  /// TO BE RUN BY THE DEVICE THAT GENERATES THE QR CODE
+  Future<bool> updatePair(String userId1);
 
   /// Removes both from the local and the cloud, the agreement
   Future<bool> unpair(String userId1, String userId2);

@@ -62,6 +62,17 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
+  Future<bool> checkReplication() async {
+    try {
+      // ignore: unused_local_variable
+      toolbox_api.Node checker = await getNode(':Local:Replication:LastReplication');
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
   Future<bool> geigerReplication() async {
     print('STARTING GEIGER REPLICATION');
 
@@ -450,6 +461,44 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
+  Future<bool> updatePair(String userId1) async {
+    print("[REPLICATION SERVICE] UPDATE PAIR METHOD");
+    /// CHECK THE CLOUD FOR AGREEMENTS
+    List<String> mergeds = await cloud.getMergedAccounts(userId1);
+    if (mergeds.isNotEmpty) {
+      for (var user in mergeds) {
+        ShortUser u = await cloud.getMergedInfo(userId1, user);
+        /// CHECK LOCAL PAIRING NODE
+        try {
+          // ignore: unused_local_variable
+          toolbox_api.Node replicationParent = await getNode(':Local:Pairing');
+        } catch (e) {
+          toolbox_api.Node replicationParent = toolbox_api.NodeImpl(':Local:Pairing', 'ReplicationService');
+          await storageController.add(replicationParent);
+        }
+        try {
+          // ignore: unused_local_variable
+          toolbox_api.Node replicationNode = await getNode(':Local:Pairing:$user');
+          print("PAIRING ALREADY EXIST");
+        } catch (e) {
+          toolbox_api.Node replicationNode = toolbox_api.NodeImpl(':Local:Pairing:$user', 'ReplicationService');
+          if (u.getPublicKey != null) {
+            replicationNode
+                .addOrUpdateValue(toolbox_api.NodeValueImpl("key", u.getPublicKey!));
+          } else {
+            replicationNode.addOrUpdateValue(toolbox_api.NodeValueImpl("key", ""));
+          }
+          await storageController.add(replicationNode);
+        }
+        await getSharedNodes(userId1, user);
+      }
+    } else {
+      return false;
+    }
+    return true;
+  }
+
+  @override
   Future<bool> unpair(String userId1, String userId2) async {
     print("START UNPAIR METHOD");
     /// deletes local node exists
@@ -457,8 +506,9 @@ class ReplicationService implements ReplicationController {
     /// checks if cloud users exist
     /// checks if already merged
     /// userId1 - local user
-    /// userId2 - peer partner 
+    /// userId2 - peer partner
 
+    /// DELETE LOCAL AGREEMENT
     try {
       await storageController.delete(":Local:Pairing:$userId2");
     } catch (e) {
@@ -466,30 +516,30 @@ class ReplicationService implements ReplicationController {
       return false;
     }
 
-    /// check cloud users
+    /// CHECK IF USER IN CLOUD
     bool user1Exists = await cloud.userExists(userId1);
     if (user1Exists == false) {
       print("User not in cloud");
       return false;
-    }
-
-    /// check userId1 agreements
-    /// if contains agreement with userId2 - delete
-    try {
-      List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
-      if (agreeUser1.contains(userId2) == true) {
-        try {
-          print("AGREEMENT SET");
-          await cloud.deleteMerged(userId1, userId2);
-        } catch (e) {
-          print("SOMETHING WENT WRONG REP TEST");
+    } else {
+      /// CHECK USERID1 AGREEMENTS
+      /// IF CONTAINS USERID2 - DELETE AGREEMENT
+      try {
+        List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
+        if (agreeUser1.contains(userId2) == true) {
+          try {
+            print("AGREEMENT SET");
+            await cloud.deleteMerged(userId1, userId2);
+          } catch (e) {
+            print("[CLOUD EXCEPTION] SOMETHING WENT WRONG WHEN UNPAIRING.");
+            return false;
+          }
+        } else {
           return false;
         }
-      } else {
+      } catch (e) {
         return false;
       }
-    } catch (e) {
-      return false;
     }
 
     /// LOOK FOR USERID2 OWNED NODES
@@ -497,13 +547,13 @@ class ReplicationService implements ReplicationController {
     toolbox_api.SearchCriteria criteria =
         toolbox_api.SearchCriteria();
     List<toolbox_api.Node> nodeList = await storageController.search(criteria);
-    print(nodeList);
-    for (var delete in nodeList) {
-      if (delete.owner == userId2) {
+    for (var toDelete in nodeList) {
+      if (toDelete.owner == userId2) {
         try {
-          await storageController.delete(delete.path);
+          print("NODE TO BE DELETED: " + toDelete.path);
+          await storageController.delete(toDelete.path);
         } catch (e) {
-          print("FAILURE REMOVING PAIRED NODE");
+          print("FAILURE REMOVING PAIRED NODE: " + toDelete.path);
           return false;
         }
       }
