@@ -1,5 +1,6 @@
 library geiger_replication;
 
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -178,23 +179,28 @@ class ReplicationService implements ReplicationController {
       events =
           await cloud.getUserEventsDateFilter(_username, filter.toString());
     }
+
+    List<Event> waitingEvents = [];
     for (var userEvent in events) {
       Event singleOne = await cloud.getSingleUserEvent(_username, userEvent);
       String type = singleOne.type.toString();
       //String tlp = singleOne.tlp.toString();
       String id = singleOne.id_event.toString();
-      String owner = singleOne.owner.toString();
+      //String owner = singleOne.owner.toString();
       //if (owner != _username) {
         if (type.toLowerCase() == "keyvalue") {
           print('CLOUD TO LOCAL REPLICATION - NO E2EE');
           toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
-          print(node);
           await updateLocalNodeWithCloudNode(node, _username);
         }
         if (type.toLowerCase() == "user_object") {
           print('CLOUD TO LOCAL REPLICATION - E2EE');
           //GET KEYS
           try {
+            ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
+            ///ELSE CREATE A NODE WITH VISIBILITY AMBER
+            ///AND REPLICATE
+            
             toolbox_api.Node keys = await getNode(':Keys:$id');
             final hexEncodedKey = keys.getValue('key').toString();
 
@@ -214,13 +220,44 @@ class ReplicationService implements ReplicationController {
             toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
             await updateLocalNodeWithCloudNode(node, _username);
           } catch (e) {
-            toolbox_api.StorageException('FAILURE GETTING KEYS FOR NODE: $id');
+            /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
+            waitingEvents.add(singleOne);
+            print('FAILURE GETTING KEYS FOR NODE: $id');
           }
         }
      // } else {
        // print("PAIRED EVENT");
      //   await updatePairedEvent(_username, singleOne);
       //}
+    }
+
+    for(var waiting in waitingEvents) {
+      String waitingId = waiting.id_event.toString();
+      try {
+        ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
+        ///ELSE CREATE A NODE WITH VISIBILITY AMBER
+        ///AND REPLICATE
+        toolbox_api.Node keys = await getNode(':Keys:$waitingId');
+        final hexEncodedKey = keys.getValue('key').toString();
+
+        /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
+        final onlyKey = hexEncodedKey.split(':');
+        final String decodedKey = hex.decode(onlyKey[1]).toString();
+
+        final keyVal = Enc.Key.fromUtf8(decodedKey);
+        final iv = Enc.IV.fromLength(16);
+        final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+
+        //DECRYPT DATA
+        String decrypted = enc
+            .decrypt(waiting.content.toString() as Enc.Encrypted, iv: iv);
+        waiting.setContent = decrypted.toString();
+
+        toolbox_api.Node node = convertJsonStringToNode(waiting.content!);
+        await updateLocalNodeWithCloudNode(node, _username);
+      } catch (e) {
+        print('FAILURE GETTING KEYS FOR NODE: $waitingId');
+      }
     }
 
     ///FETCH ALL TLP WHITE EVENTS - FREELY SHARED
@@ -235,7 +272,7 @@ class ReplicationService implements ReplicationController {
 
   Future<void> localToCloudReplication(String _username, DateTime _actual,
       DateTime _fromDate, bool _fullRep) async {
-    print("REPLICATION - LOCAL TO CLOUD NODES");
+    print("REPLICATION - LOCAL TO CLOUD NODES REPLICATION");
     /// START OF THE SECOND DIAGRAM
     /// START CLEANING DATA AND REMOVING TOMBSTONES
     cleanData(_actual);
@@ -249,7 +286,6 @@ class ReplicationService implements ReplicationController {
       //print('PARTIAL REPLICATION');
       nodeList.addAll(await getAllNodesLastModified(_fromDate));
     }
-    print(nodeList);
 
     /// SORT NODES BY TIMESTAMP
     nodeList.sort((a, b) => DateTime.fromMillisecondsSinceEpoch(a.lastModified)
@@ -258,7 +294,9 @@ class ReplicationService implements ReplicationController {
     /// GET ALL EVENTS OF A USER - THE NAME CAN BE ANYTHING
     /// UUID IS RECOMMENDED BUT NOT MANDATORY
     /// CONVERT ALL TO NODES AND CHECK
-    List<toolbox_api.Node> cloudNodeList = [];
+    List<Map<dynamic,dynamic>> cloudNodeList = [];
+    List<String> cloudNodePath = [];
+    List<Event> events = [];
     List<String> userEvents = [];
     try {
       userEvents = await cloud.getUserEvents(_username);
@@ -266,7 +304,10 @@ class ReplicationService implements ReplicationController {
         try {
           Event newCloudEvent =
               await cloud.getSingleUserEvent(_username, cloudEvent);
-          cloudNodeList.add(convertJsonStringToNode(newCloudEvent.content!));
+          Map<dynamic, dynamic> data = getPartialJsonString(newCloudEvent.content!);
+          cloudNodeList.add(data);
+          cloudNodePath.add(data['path']);
+          events.add(newCloudEvent);
         } catch (e) {
           print("ERROR GETTING SINGLE USER EVENT");
         }
@@ -277,11 +318,10 @@ class ReplicationService implements ReplicationController {
 
     if (nodeList.isEmpty == false) {
       for (var sorted in nodeList) {
-        print(sorted);
         /// CHECK TLP
         String tlp = sorted.visibility.toValueString();
         String identifier = sorted.name.toString();
-        //print(identifier);
+        String fullPath = sorted.path;
         /// CHECK CONSENT
         /// TBD
         /// 3 AGREEMENTS: NEVER, NO ONCE, AGREE ONCE
@@ -289,45 +329,72 @@ class ReplicationService implements ReplicationController {
         String uuid = await cloud.generateUUID();
         Event toCheck = Event(id_event: uuid, tlp: tlp.toUpperCase());
         toCheck.encoding = 'ascii';
-        print("VISIBILITY OF NODE IS TLP: " + tlp);
-        if (tlp.toLowerCase() != 'black' && sorted.path.startsWith(':Local')==false && sorted.path.startsWith(':Global')==false) {
+        if (tlp.toLowerCase() != 'black' && sorted.path.startsWith(':Local')==false 
+          && sorted.path.startsWith(':Global')==false && sorted.tombstone==false) {
           if (tlp.toLowerCase() == 'red') {
+            print("TLP:RED NODE");
             try {
-              toolbox_api.Node keys = await getNode(':Keys:$identifier');
-              final hexEncodedKey = keys.getValue('key').toString();
-
+              ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
+              ///ELSE - CREATE NEW KEY
+              toolbox_api.SearchCriteria criteria =
+                toolbox_api.SearchCriteria(searchPath: ':Keys', value: fullPath);
+              List<toolbox_api.Node> keyList = await storageController.search(criteria);
+              toolbox_api.Node? keys;
+              if (keyList.isNotEmpty) {
+                /// SHOULD RETURN ONLY ONE NODE
+                keys = keyList.first;
+              } else {
+                /// IF A PRE EXISTING KEY DOES NOT EXIST
+                /// CREATE NEW ONE AND A NODE
+                toolbox_api.Node newKey = toolbox_api.NodeImpl(':Keys:$identifier', 'Cloud-Replication');
+                newKey.addOrUpdateValue(toolbox_api.NodeValueImpl('path', fullPath));
+                final nodeKey = Enc.Key.fromSecureRandom(32).base64.toString();
+                newKey.addOrUpdateValue(toolbox_api.NodeValueImpl('key', 'aes-256-cfb:$nodeKey'));
+                toolbox_api.Visibility? checkerVisible =
+                  toolbox_api.VisibilityExtension.valueOf("amber");
+                if (checkerVisible != null) {
+                  newKey.visibility = checkerVisible;
+                }
+                await storageController.add(newKey);
+                keys = newKey;
+              }
+              final hexEncodedKey = await keys
+                .getValue('key')
+                .then((value) => value!.getValue("en").toString());
               /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
               final onlyKey = hexEncodedKey.split(':');
-              final String decodedKey = hex.decode(onlyKey[1]).toString();
-
-              final keyVal = Enc.Key.fromUtf8(decodedKey);
+              final String decodedKey = onlyKey[1];//hex.decode(onlyKey[1]).toString();
+              print("KEY USED TO ENCRYPT NODE DATA: " + decodedKey);
+              final keyVal = Enc.Key.fromBase64(decodedKey);
               final iv = Enc.IV.fromLength(16);
               final enc =
                   Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-
+              var convertedNode = await convertNodeToJsonString(sorted);
               Enc.Encrypted encrypted =
-                  enc.encrypt(await convertNodeToJsonString(sorted), iv: iv);
-              toCheck.content = encrypted.toString();
+                  enc.encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
+              convertedNode['custom_fields'] = encrypted.base64;
+              toCheck.content = json.encode(convertedNode);
             } catch (e) {
-              toCheck.content = await convertNodeToJsonString(sorted);
+              print(e);
+              toCheck.content = json.encode(await convertNodeToJsonString(sorted));
               print('FAILURE GETTING KEYS');
             }
             toCheck.type = 'user_object';
           } else {
             toCheck.type = 'keyvalue';
-            toCheck.content = await convertNodeToJsonString(sorted);
+            toCheck.content = json.encode(await convertNodeToJsonString(sorted));
           }
           toCheck.owner = _username;
           //CHECK IF EVENT IN CLOUD
           try {
-            print("NODE RETRIEVED");
             // IF OK
             // CHECK TIMESTAMP
             // IF NEEDED -> PUT
-            if (cloudNodeList.contains(sorted)) {
-              int index = cloudNodeList.indexOf(sorted);
+            if (cloudNodePath.contains(fullPath)==true) {
+              print("NODE ALREADY IN CLOUD");
+              int index = cloudNodePath.indexOf(fullPath);
               DateTime toCompare = DateTime.fromMillisecondsSinceEpoch(
-                  cloudNodeList[index].lastModified);
+                  cloudNodeList[index]['lastModified']);
               DateTime nodeTime =
                   DateTime.fromMillisecondsSinceEpoch(sorted.lastModified);
               //AS IN CLOUD, COMPARE DATETIMES
@@ -337,19 +404,19 @@ class ReplicationService implements ReplicationController {
                 await cloud.updateEvent(_username, userEvents[index], toCheck);
               }
             } else {
+              print("NODE NOT IN CLOUD");
               print("ADD LOCAL NODE TO CLOUD");
               await cloud.createEvent(_username, toCheck);
             }
           } catch (e) {
+            print(e);
+            print("CATCH");
             print("ADD LOCAL NODE TO CLOUD");
             // IF NO EVENT IS RETURNED -> POST NEW EVENT
             await cloud.createEvent(_username, toCheck);
           }
         } else {
-          print("LOCAL NODE NOT BE REPLICATED: ");
-          print(sorted.path);
-          print(sorted.visibility.toValueString());
-          print("BLACK NODES - LOCAL NODES - GLOBAL NODES -  MUST NOT BE REPLICATED FROM LOCAL TO CLOUD");
+          print("LOCAL NODE MUST NOT BE REPLICATED: " + sorted.toString());
         }
       }
     }
@@ -618,13 +685,15 @@ class ReplicationService implements ReplicationController {
               final enc =
                   Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
               final iv = Enc.IV.fromLength(16);
-              Enc.Encrypted encrypted = enc
-                  .encrypt(await convertNodeToJsonString(toShareNode), iv: iv);
-              toPostEvent.setContent = encrypted.toString();
+              var convertedNode = await convertNodeToJsonString(toShareNode);
+              Enc.Encrypted encrypted =
+                  enc.encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
+              convertedNode['custom_fields'] = encrypted.base64;
+              toPostEvent.setContent = jsonEncode(convertedNode);
             } catch (e) {
               print("ISSUE ENCRYPTING DATA");
               toPostEvent.setContent =
-                  await convertNodeToJsonString(toShareNode);
+                  json.encode(await convertNodeToJsonString(toShareNode));
             }
             await cloud.createEvent(senderUserId, toPostEvent);
           } else {
@@ -874,7 +943,7 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<void> updateTLPWhiteEvents(bool _fullRep, DateTime _fromDate) async {
-    print("TLP WHUITE EVENTS");
+    print("UPDATE TLP WHITE EVENTS");
     List<Event> freeEvents;
     // FILTER BY DATE
     if (_fullRep == true) {
@@ -894,11 +963,10 @@ class ReplicationService implements ReplicationController {
         try {
           ///var content = jsonDecode(free.content!);
           String nodePath = ':Global:$typeTLP:$uuid';
-
           /// CHECK IF typeTLP node created
           try {
+            // ignore: unused_local_variable
             toolbox_api.Node typeChecker = await getNode(':Global:$typeTLP');
-            print(typeChecker.name.toString());
           } catch (e) {
             /// CREATE NODE FOR TYPE of TLP WHITE EVENT
             toolbox_api.Node typeChecker =
@@ -939,12 +1007,10 @@ class ReplicationService implements ReplicationController {
   Future<void> updateThreatWeights() async {
     print('UPDATE THREAT WEIGHTS');
     try {
-      print("THREAET WEIGHTS NODE EXISTS");
+      // ignore: unused_local_variable
       toolbox_api.Node typeChecker = await getNode(':Global:ThreatWeight');
-      print(typeChecker.name.toString());
     } catch (e) {
       /// CREATE NODE FOR TYPE of TLP WHITE EVENT
-      print("THREAT WEIGHT NODE TO BE CREATED");
       toolbox_api.Node typeChecker =
           toolbox_api.NodeImpl(':Global:ThreatWeight', 'ULEI');
       toolbox_api.Visibility? checkerVisible =
@@ -956,7 +1022,6 @@ class ReplicationService implements ReplicationController {
     }
     List<ThreatWeights> weights = await cloud.getThreatWeights();
     for (var weight in weights) {
-      print(weight.toJson());
       String? uuid = weight.idThreatweights;
       ThreatDict? data = weight.threatDict;
       if (uuid != null && data != null) {
@@ -971,7 +1036,6 @@ class ReplicationService implements ReplicationController {
           // add all the fields in a single json string
           checker.addOrUpdateValue(
               toolbox_api.NodeValueImpl('threatJson', jsonEncode(data)));
-          print(checker);
           await storageController.update(checker);
         } catch (e) {
           toolbox_api.Node newThreatNode =
@@ -988,7 +1052,6 @@ class ReplicationService implements ReplicationController {
           });*/
           newThreatNode.addOrUpdateValue(
               toolbox_api.NodeValueImpl('threatJson', jsonEncode(data)));
-          print(newThreatNode);
           await storageController.add(newThreatNode);
         }
       }
@@ -1164,7 +1227,17 @@ class ReplicationService implements ReplicationController {
     String lastModified = filter.millisecondsSinceEpoch.toString();
     toolbox_api.SearchCriteria criteria =
         toolbox_api.SearchCriteria(nodeValueLastModified: lastModified);
-    List<toolbox_api.Node> nodeList = await storageController.search(criteria);
+    List<toolbox_api.Node> nodeList = [];
+    List<toolbox_api.Node> preNodeList = await storageController.search(criteria);
+    for (var node in preNodeList) {
+      String dataPath = node.path.toString();
+      if (dataPath!=":" && dataPath!=":Users" && dataPath!=":Devices"
+        && dataPath!=":Enterprise" && dataPath!=":Keys" && dataPath!=":Global"
+          && dataPath!=":Local"){
+            print("NODE THAT CAN BE ADDED");
+          nodeList.add(node);
+      }
+    }
     return nodeList;
   }
 
@@ -1358,14 +1431,20 @@ class ReplicationService implements ReplicationController {
         toolbox_api.NodeValue nodeValue =
             toolbox_api.NodeValueImpl(key, value.toString());
         for (var translation in valueTranslations) {
-          nodeValue.setValue(translation['value'],
-              Locale.fromSubtags(languageCode: translation['key']));
+          var tr = translation['value'];
+          if (tr!=null && tr!=""){
+            nodeValue.setValue(translation['value'],
+                Locale.fromSubtags(languageCode: translation['key']));
+          }
         }
         if (nodeDescription != null) {
           nodeValue.setDescription(nodeDescription);
           for (var description in descriptionTranslations) {
-            nodeValue.setValue(description['value'],
-                Locale.fromSubtags(languageCode: description['key']));
+            var dr = description['value'];
+            if (dr != null && dr != "") {
+              nodeValue.setValue(description['value'],
+                  Locale.fromSubtags(languageCode: description['key']));
+            }
           }
         }
         node.addOrUpdateValue(nodeValue);
@@ -1379,11 +1458,39 @@ class ReplicationService implements ReplicationController {
     }
   }
 
-  Future<String> convertNodeToJsonString(toolbox_api.Node node) async {
+  Map<dynamic,dynamic> getPartialJsonString(String content) {
+    print("GET PARTIAL DATA");
+    try {
+      Map<String, dynamic> mapper = jsonDecode(content);
+      var path = mapper['path'];
+      var owner = mapper['owner'];
+      var visibility = mapper['visibility'];
+      var lastModified = mapper['lastModified'];
+      var name = mapper['name'];
+      var parentPath = mapper['parentPath'];
+      var extendedLastModified = mapper['extendedLastModified'];
+      var tombstone = mapper['tombstone'];
+      var converted = {};
+      converted['name'] = name;
+      converted['parentPath'] = parentPath;
+      converted['path'] = path;
+      converted['owner'] = owner;
+      converted['visibility'] = visibility;
+      converted['lastModified'] = lastModified;
+      converted['extendedLastModified'] = extendedLastModified;
+      converted['tombstone'] = tombstone;
+      return converted;
+    } catch (e) {
+      print(e);
+      throw ReplicationException(
+          "[REPLICATION EXCEPTION] FAIL GETTING EVENT JSON STRING CONTENT TYPE TO SHORT EVENT");
+    }
+  }
+
+  Future<Map<dynamic,dynamic>> convertNodeToJsonString(toolbox_api.Node node) async {
     print("CONVERT NODE TO JSON");
     try {
       var converted = {};
-
       /// CONVERT VALUES
       converted['name'] = node.name;
       converted['parentPath'] = node.parentPath;
@@ -1424,8 +1531,8 @@ class ReplicationService implements ReplicationController {
         }
         converted['custom_fields'].add(loop);
       });
-      String stringConverted = json.encode(converted);
-      return stringConverted;
+      //String stringConverted = json.encode(converted);
+      return converted;
     } catch (e) {
       print(e);
       throw ReplicationException(

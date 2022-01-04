@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'package:convert/convert.dart';
+//import 'package:convert/convert.dart';
 import 'dart:io';
 //import 'dart:math';
 // ignore: library_prefixes
-import 'package:cloud_replication_package/src/replication_exception.dart';
+//import 'package:cloud_replication_package/src/replication_exception.dart';
 // ignore: library_prefixes
 import 'package:encrypt/encrypt.dart' as Enc;
 
@@ -117,7 +117,7 @@ Future<String> generateUUID() async {
 }
 
 void replicationTests() async {
-  test('Delete Node Test', () async {
+ /* test('Delete Node Test', () async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
@@ -141,8 +141,8 @@ void replicationTests() async {
       print(e);
     }
     
-  });
-  test('multiple pairing', () async {
+  });*/
+  /*test('multiple pairing', () async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
@@ -168,14 +168,14 @@ void replicationTests() async {
     toolbox_api.Node nod2e = await storageController.get(":Devices");
     print(await nod2e.getChildren());
     await rep.endGeigerStorage();
-  }, timeout: Timeout(Duration(minutes: 5)));
-  test("SEARCH CRITERIA", () async {
+  }, timeout: Timeout(Duration(minutes: 5)));*/
+  /*test("SEARCH CRITERIA", () async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
-    toolbox_api.Node n = toolbox_api.NodeImpl(":Local:demo1", "checker");
+    //toolbox_api.Node n = toolbox_api.NodeImpl(":Local:demo1", "checker");
     //await storageController.add(n);
-    toolbox_api.Node m = toolbox_api.NodeImpl(":Devices:demo1", "checker");
+    //toolbox_api.Node m = toolbox_api.NodeImpl(":Devices:demo1", "checker");
     //await storageController.add(m);
 
     toolbox_api.SearchCriteria criteria =
@@ -189,8 +189,8 @@ void replicationTests() async {
         await storageController.delete(entry.path);
       }
     }
-  });
-  test('addOrUpdateTest', () async {
+  });*/
+  /*test('addOrUpdateTest', () async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
@@ -217,7 +217,7 @@ void replicationTests() async {
     } catch (e) {
       print("NODE HAS NOT BEEN ADDED");
     }
-  });
+  });*/
   //late toolbox_api.StorageController storageController;
   //final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
 
@@ -255,7 +255,7 @@ void replicationTests() async {
     Enc.Encrypted encrypted = enc.encrypt(node.toString(), iv: iv);
     print(encrypted.toString());
   }, timeout: Timeout(Duration(minutes: 5)));*/
-  test('Get all nodes', () async {
+  /*test('Get all nodes', () async {
     toolbox_api.StorageController storageController = await initGeigerStorage();
     List<toolbox_api.Node> n = await getAllNodes(storageController);
     print(n);
@@ -264,9 +264,9 @@ void replicationTests() async {
     ReplicationController rep = ReplicationService();
     bool tester = await rep.checkConnection();
     print(tester);
-  });
+  });*/
 
-  test('Check pair test', () async {
+  /*test('Check pair test', () async {
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
     String userId1 = "replicationTest";
@@ -274,9 +274,9 @@ void replicationTests() async {
     bool check = await rep.checkPairing(userId1, userId2);
     print(check);
     rep.endGeigerStorage();
-  });
+  });*/
 
-  test('Pair test', () async {
+ /* test('Pair test', () async {
     //ReplicationController rep = ReplicationService();
     //await rep.endGeigerStorage();
     toolbox_api.StorageController storageController = await initGeigerStorage();
@@ -284,7 +284,7 @@ void replicationTests() async {
     print(await l.getChildren());
     print(await storageController
         .get(":Devices:8190499d-9794-41cd-bdc3-b6936279f26a"));
-    exit(0);
+    exit(0);*/
 
     /// INIT STORAGE WITH ALREADY GIVEN
     /*ReplicationController rep = ReplicationService();
@@ -299,10 +299,10 @@ void replicationTests() async {
     if (userList.contains(userId2)) {
       print("HAS AGREEMENT");
     }*/
-  });
+ // });
 
   /// UNPAIR TEST
-  test('Unpair Test', () async {
+/*  test('Unpair Test', () async {
     /// RUN PAIRING TEST BEFORE
     toolbox_api.StorageController storageController = await initGeigerStorage();
 
@@ -345,16 +345,16 @@ void replicationTests() async {
     } catch (e) {
       print("NODE NOT FOUND. UNPAIRING ACHIEVED");
     }
-  });
-  test('Encrypter Test', () async {
+  });*/
+ /* test('Encrypter Test', () async {
     String data = "Demo";
     final keyVal = Enc.Key.fromLength(32);
     final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
     final iv = Enc.IV.fromLength(32);
     Enc.Encrypted encrypted = enc.encrypt(data, iv: iv);
     print(encrypted.base64);
-  });
-  test('Share Nodes Test', () async {
+  });*/
+ /* test('Share Nodes Test', () async {
     toolbox_api.StorageController storageController = await initGeigerStorage();
 
     /// INIT STORAGE WITH ALREADY GIVEN
@@ -395,19 +395,32 @@ void replicationTests() async {
       Event singleOne = await cloud.getSingleUserEvent(userId2, single);
       print(singleOne);
     }
-  }, timeout: Timeout(Duration(minutes: 5)));
-  test('Get shared nodes', () async {
+  }, timeout: Timeout(Duration(minutes: 5)));*/
+  /*test('Get shared nodes', () async {
     toolbox_api.StorageController storageController = await initGeigerStorage();
+    final nodeKey = Enc.Key.fromSecureRandom(32);
+    print(nodeKey.toString());
+    //toolbox_api.Node n = toolbox_api.NodeImpl(':Enterprise:f44a059d-3bcb-4e82-9913-088a26571970', 'Cloud');
+    //n.addOrUpdateValue(toolbox_api.NodeValueImpl('path',':Users:f44a059d-3bcb-4e82-9913-088a26571970'));
+    //await storageController.add(n);
+    //print(n);
+    toolbox_api.SearchCriteria criteria =
+      toolbox_api.SearchCriteria(searchPath: ':Keys', value: ':Users:f44a059d-3bcb-4e82-9913-088a26571970');
+      print("HERE ARRIVES");
+      print(criteria);
+    List<toolbox_api.Node> keyList = await storageController.search(criteria);
+    print("ATRE");
+    print(keyList);*/
 
     /// INIT STORAGE WITH ALREADY GIVEN
-    ReplicationController rep = ReplicationService();
+    //ReplicationController rep = ReplicationService();
     //ReplicationService ser = ReplicationService();
-    await rep.initGeigerStorage();
+   /* await rep.initGeigerStorage();
     String userId1 = "a396c2ed-59f4-4d2d-b86d-8e9b7bdb0bd0";
-    String userId2 = "547b7932-6e13-4dc2-9975-15ad24dcba10";
+    String userId2 = "547b7932-6e13-4dc2-9975-15ad24dcba10";*/
 
     /// Create a custom pairing agreement
-    try {
+   /* try {
       toolbox_api.Node pairParent =
           await storageController.get(":Local:Pairing");
       print(pairParent.name);
@@ -435,12 +448,15 @@ void replicationTests() async {
 
     await rep.getSharedNodes(userId2, userId1);
     toolbox_api.Node tas = await storageController.get(':Users');
-    print(await tas.getChildren());
-  }, timeout: Timeout(Duration(minutes: 5)));
+    print(await tas.getChildren());*/
+  //}, timeout: Timeout(Duration(minutes: 5)));
 
   test('Full Replication', () async {
-    //toolbox_api.StorageController storageController = await initGeigerStorage();
-
+    print("FULL REPLICATION TEST");
+    toolbox_api.StorageController storageController = await initGeigerStorage();
+    toolbox_api.Node n = toolbox_api.NodeImpl(':Enterprise:demo', 'Replication');
+    n.addOrUpdateValue(toolbox_api.NodeValueImpl('prueba','la gente lo presentia'));
+    await storageController.addOrUpdate(n);
     /// INIT STORAGE
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
@@ -456,15 +472,15 @@ void replicationTests() async {
     /* toolbox_api.Node updateRep =
         await storageController.get(':Local:Replication:LastReplication');
     toolbox_api.Node updateRepNode =
-        await storageController.get(':Local:Replication:LastReplication');*/
-    /*print(updateRep);
+        await storageController.get(':Local:Replication:LastReplication');
+    print(updateRep);
     print(updateRepNode);
     toolbox_api.Node threat =
         await storageController.get(':Global:ThreatWeight');
     print(threat);
     print(await threat.getChildren());*/
   }, timeout: Timeout(Duration(minutes: 5)));
-  test('First consent approach', () async {
+  /*test('First consent approach', () async {
     toolbox_api.StorageController storageController = await initGeigerStorage();
 
     /// INIT STORAGE WITH ALREADY GIVEN
@@ -483,7 +499,7 @@ void replicationTests() async {
     await storageController.addOrUpdate(node2);
     toolbox_api.Node tryal = await storageController.get(':Local:test:test1');
     print(tryal);
-  }, timeout: Timeout(Duration(minutes: 5)));
+  }, timeout: Timeout(Duration(minutes: 5)));*/
 
   /// CLOUD SERVICE TESTS
   /// TEST OF EACH METHOD
@@ -562,7 +578,7 @@ void replicationTests() async {
         'anyRandomUserId', formatted.toString());
     print(response);
   });*/
-  test('get Single User Event', () async {
+ /* test('get Single User Event', () async {
     var cloud = CloudService();
     String eventId = await generateUUID();
     String userId = "replicationTest";
@@ -578,8 +594,8 @@ void replicationTests() async {
     /// Check if the event exists
     Event checker = await cloud.getSingleUserEvent(userId, eventId);
     expect(checker.id_event, eventId);
-  });
-  test('delete Event', () async {
+  });*/
+  /*test('delete Event', () async {
     var cloud = CloudService();
     String eventId = await generateUUID();
     String userId = "replicationTest";
@@ -602,12 +618,12 @@ void replicationTests() async {
     /// Try to get the event
     expect(() async => await cloud.getSingleUserEvent(userId, eventId),
         throwsA(isA<CloudException>()));
-  });
-  test('get Threat Weights', () async {
+  });*/
+  /*test('get Threat Weights', () async {
     var cloud = CloudService();
     List<ThreatWeights> response = await cloud.getThreatWeights();
     print(response.length);
-  });
+  });*/
 }
 
 void main() {
