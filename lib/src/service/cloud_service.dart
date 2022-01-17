@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cloud_replication_package/src/cloud_models/recommendation.dart';
 import 'package:cloud_replication_package/src/service/cloud_exception.dart';
 
 import 'package:http/http.dart' as http;
@@ -10,6 +11,7 @@ import '../cloud_models/event.dart';
 import '../cloud_models/threat_weights.dart';
 import '../cloud_models/user.dart';
 import '../cloud_models/short_user.dart';
+import '../cloud_models/recommendation.dart';
 
 class CloudService {
   final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
@@ -610,6 +612,45 @@ class CloudService {
         List<dynamic> object = jsonDecode(response.body);
 
         return object.map((e) => ThreatWeights.fromJson(e)).toList();
+      } else {
+        print('FAILURE: STATUS CODE ' + response.statusCode.toString());
+        throw Exception;
+      }
+    } catch (e) {
+      print('SOME EXCEPTION OCCURED');
+      print(e);
+      throw Exception;
+    }
+  }
+
+  /// *************************
+  /// RECOMMENDATIONS OPERATIONS
+  /// *************************
+
+  //GET RECOMMENDATIONS
+  Future<List<Recommendation>> getRecommendations() async {
+    try {
+      print('GET RECOMMENDATIONS');
+      final String threatUri = '/recommendation';
+      Uri url = Uri.parse(uri + threatUri);
+      print(url);
+      HttpClient client = HttpClient()
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
+      var ioClient = IOClient(client);
+      final response = await ioClient.get(
+        url,
+        headers: <String, String>{
+          'accept': 'application/json',
+          'content-type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        print('RESPONSE OK');
+        //var object = json.decode(response.body);
+        List<dynamic> object = jsonDecode(response.body);
+
+        return object.map((e) => Recommendation.fromJson(e)).toList();
       } else {
         print('FAILURE: STATUS CODE ' + response.statusCode.toString());
         throw Exception;

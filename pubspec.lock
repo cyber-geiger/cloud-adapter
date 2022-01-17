@@ -15,6 +15,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.7.0"
+  android_intent_plus:
+    dependency: transitive
+    description:
+      name: android_intent_plus
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "3.0.2"
   args:
     dependency: transitive
     description:
@@ -236,7 +243,7 @@ packages:
       name: geiger_api
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.5.5"
+    version: "0.6.0"
   geiger_localstorage:
     dependency: transitive
     description:

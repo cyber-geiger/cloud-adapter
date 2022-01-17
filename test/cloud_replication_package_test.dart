@@ -16,6 +16,8 @@ import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
 import 'package:cloud_replication_package/src/service/cloud_exception.dart';
 //import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:cloud_replication_package/src/service/cloud_service.dart';
+import 'package:cloud_replication_package/src/service/event_listener.dart';
+import 'package:cloud_replication_package/src/service/node_listener.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
@@ -24,44 +26,50 @@ import 'package:test/test.dart';
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 import 'package:geiger_api/geiger_api.dart';
 
-
-  Future<List<toolbox_api.Node>> getAllNodes(toolbox_api.StorageController sto ) async {
-    print("GET ALL NODES IN A RECURSIVE WAY");
-    List<toolbox_api.Node> nodeList = [];
-    try {
-      toolbox_api.Node root1 = await sto.get(':Devices');
-      await getRecursiveNodes(sto,root1, nodeList); 
-      toolbox_api.Node root2 = await sto.get(':Users');
-      await getRecursiveNodes(sto,root2, nodeList); 
-      toolbox_api.Node root3 = await sto.get(':Keys');
-      await getRecursiveNodes(sto,root3, nodeList); 
-      toolbox_api.Node root4 = await sto.get(':Enterprise');
-      await getRecursiveNodes(sto,root4, nodeList); 
-    } catch (e) {
-      print(e);
-    }
-    return nodeList;
+Future<List<toolbox_api.Node>> getAllNodes(
+    toolbox_api.StorageController sto) async {
+  print("GET ALL NODES IN A RECURSIVE WAY");
+  List<toolbox_api.Node> nodeList = [];
+  try {
+    toolbox_api.Node root1 = await sto.get(':Devices');
+    await getRecursiveNodes(sto, root1, nodeList);
+    toolbox_api.Node root2 = await sto.get(':Users');
+    await getRecursiveNodes(sto, root2, nodeList);
+    toolbox_api.Node root3 = await sto.get(':Keys');
+    await getRecursiveNodes(sto, root3, nodeList);
+    toolbox_api.Node root4 = await sto.get(':Enterprise');
+    await getRecursiveNodes(sto, root4, nodeList);
+  } catch (e) {
+    print(e);
   }
+  return nodeList;
+}
 
-  Future<List<toolbox_api.Node>> getRecursiveNodes(toolbox_api.StorageController sto,
-      toolbox_api.Node node, List<toolbox_api.Node> list) async {
-    print("RECURSIVE METHOD");
-    String dataPath = node.path.toString();
-    print(dataPath);
-    if (dataPath!=":" && dataPath!=":Users" && dataPath!=":Devices"
-     && dataPath!=":Enterprise" && dataPath!=":Keys" && dataPath!=":Global"
-      && dataPath!=":Local"){
-        print("NODE THAT CAN BE ADDED");
-      list.add(node);
-    }
-    Map<String, toolbox_api.Node> children = await node.getChildren();
-    if (children.isNotEmpty){
-      for(var value in children.values) {
-        list = await getRecursiveNodes(sto,value, list);
-      }
-    }
-    return list;
+Future<List<toolbox_api.Node>> getRecursiveNodes(
+    toolbox_api.StorageController sto,
+    toolbox_api.Node node,
+    List<toolbox_api.Node> list) async {
+  print("RECURSIVE METHOD");
+  String dataPath = node.path.toString();
+  print(dataPath);
+  if (dataPath != ":" &&
+      dataPath != ":Users" &&
+      dataPath != ":Devices" &&
+      dataPath != ":Enterprise" &&
+      dataPath != ":Keys" &&
+      dataPath != ":Global" &&
+      dataPath != ":Local") {
+    print("NODE THAT CAN BE ADDED");
+    list.add(node);
   }
+  Map<String, toolbox_api.Node> children = await node.getChildren();
+  if (children.isNotEmpty) {
+    for (var value in children.values) {
+      list = await getRecursiveNodes(sto, value, list);
+    }
+  }
+  return list;
+}
 
 Future<toolbox_api.StorageController> initGeigerStorage() async {
   print("INIT GEIGER STORAGE");
@@ -117,7 +125,147 @@ Future<String> generateUUID() async {
 }
 
 void replicationTests() async {
- /* test('Delete Node Test', () async {
+  test('SIMPLE MULTIPLE PAIRING', () async {
+    print('MULTIPLE PAIRING');
+    GeigerApi localMaster =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    // ignore: unused_local_variable
+    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.Node local = await storageController.get(':Local');
+    String _localUser = await local
+        .getValue('currentUser')
+        .then((value) => value!.getValue("en").toString());
+
+    toolbox_api.Node devices = await storageController.get(':Devices');
+    print("DEVICES NODE");
+    print(devices);
+    print("DEVICE CHILDREN NODE");
+    print(await devices.getChildren());
+
+    /// NOW CREATE TWO RANDOM CLOUD USERS AND SET PAIR
+    ReplicationController rep = ReplicationService();
+    String u1 = 'randomUser1';
+    String u2 = 'randomUser2';
+    //rep.createCloudUser(u1);
+    //rep.createCloudUser(u2);
+    await rep.initGeigerStorage();
+    await rep.setPair(
+        _localUser, '222f1b1c-b3d9-43fc-886e-adb71eb76baf', 'both');
+    //await rep.setPair(_localUser, u2, 'both');
+
+    /// GET DEVICES NODE AND PRINT
+    toolbox_api.Node devices1 = await storageController.get(':Devices');
+    print("DEVICES NODE");
+    print(devices1);
+    print("DEVICE CHILDREN NODE");
+    print(await devices1.getChildren());
+    await rep.endGeigerStorage();
+  });
+  test('GET STORAGE LISTENER', () async {
+    print("LISTENER TEST");
+    GeigerApi localMaster =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    // ignore: unused_local_variable
+    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    List<MessageType> allEvents = [MessageType.allEvents];
+
+    toolbox_api.SearchCriteria sc = toolbox_api.SearchCriteria();
+    NodeListener stListener = NodeListener();
+    storageController.registerChangeListener(stListener, sc);
+    EventListener listener = EventListener('CloudReplicationListener');
+    await localMaster.registerListener(allEvents, listener);
+
+    //ADD NODES
+    toolbox_api.Node n1 =
+        toolbox_api.NodeImpl(':Local:StorageListener128', 'Replication');
+    n1.addOrUpdateValue(toolbox_api.NodeValueImpl("demo", "as"));
+    toolbox_api.Node n2 =
+        toolbox_api.NodeImpl(':Local:StorageListener9', 'Replication');
+    toolbox_api.Node n3 =
+        toolbox_api.NodeImpl(':Local:StorageListener10', 'Replication');
+    await storageController.addOrUpdate(n1);
+    //await storageController.delete(':Local:StorageListener8');
+    await storageController.addOrUpdate(n2);
+    //await storageController.delete(':Local:StorageListener9');
+    await storageController.addOrUpdate(n3);
+    //await storageController.delete(':Local:StorageListener10');
+    print("----------------------------------------------------------------");
+    //print(await stListener.newnode);
+    //print(await stListener.oldnode);
+    GeigerApi localMaster1 =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    // ignore: unused_local_variable
+    toolbox_api.StorageController storageController1 =
+        localMaster1.getStorage()!;
+    toolbox_api.Node n11 =
+        toolbox_api.NodeImpl(':Local:StorageListener1da28', 'Replication');
+    n1.addOrUpdateValue(toolbox_api.NodeValueImpl("demo", "as"));
+    toolbox_api.Node n112 =
+        toolbox_api.NodeImpl(':Local:StorageListenesr9', 'Replication');
+    toolbox_api.Node n13 =
+        toolbox_api.NodeImpl(':Local:StoraasgeListener10', 'Replication');
+    await storageController1.addOrUpdate(n11);
+    //await storageController.delete(':Local:StorageListener8');
+    await storageController1.addOrUpdate(n112);
+    //await storageController.delete(':Local:StorageListener9');
+    await storageController1.addOrUpdate(n13);
+
+    var result = storageController.deregisterChangeListener(stListener);
+    print("----------asasasdasd....................");
+    print(result);
+    //GeigerApi demo =
+    //  (await getGeigerApi("", 'demo', Declaration.doShareData))!;
+    //NodeListener listener1 = NodeListener('DemoListener');
+    //await demo.registerListener(allEvents, listener1);
+    //ADD NODES
+    /*toolbox_api.Node n11 = toolbox_api.NodeImpl(':Local:StorageListener8','Replication');
+    toolbox_api.Node n12 = toolbox_api.NodeImpl(':Local:StorageListener9','Replication');
+    toolbox_api.Node n13 = toolbox_api.NodeImpl(':Local:StorageListener10','Replication');
+    toolbox_api.StorageController storageController1 = localMaster.getStorage()!;
+    await storageController1.add(n11);
+    await storageController1.delete(':Local:StorageListener8');
+    await storageController1.add(n12);
+    await storageController1.delete(':Local:StorageListener9');
+    await storageController1.add(n13);
+    await storageController1.delete(':Local:StorageListener10');*/
+
+    //GET EVENTS
+    List<Message> events = listener.getEvents();
+    print(
+        "-------------------------------------------------------------*************************");
+    print(events);
+    //for (var event in events) {
+//      print(event.type);
+    //    print(event.sourceId);
+    //  print(event.targetId);
+    //    print(event.requestId);
+    //  print(event.action);
+    //}
+  });
+  /*test('GET USER PROMPT', () async {
+    print("GET USER PROMPT TEST");
+    GeigerApi localMaster =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    // ignore: unused_local_variable
+    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+
+    /// SEND MESSAGE
+    GeigerUrl? url;
+    try {
+      url = GeigerUrl(null, GeigerApi.masterId, 'geiger://plugin/path');
+    } catch (e) {
+      print(e);
+    }
+    try {
+      print("SEND MESSAGE");
+      MessageType messageType = MessageType.storageEvent;
+      Message message = Message('ReplicationController', 'uiId', messageType, url);
+      await localMaster.sendMessage(message);
+    } catch (e) {
+      print(e);
+    }
+  });*/
+  /* test('Delete Node Test', () async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
@@ -276,7 +424,7 @@ void replicationTests() async {
     rep.endGeigerStorage();
   });*/
 
- /* test('Pair test', () async {
+  /* test('Pair test', () async {
     //ReplicationController rep = ReplicationService();
     //await rep.endGeigerStorage();
     toolbox_api.StorageController storageController = await initGeigerStorage();
@@ -286,8 +434,8 @@ void replicationTests() async {
         .get(":Devices:8190499d-9794-41cd-bdc3-b6936279f26a"));
     exit(0);*/
 
-    /// INIT STORAGE WITH ALREADY GIVEN
-    /*ReplicationController rep = ReplicationService();
+  /// INIT STORAGE WITH ALREADY GIVEN
+  /*ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
     String userId1 = "replicationTest";
     String userId2 = "replicationTest1";
@@ -299,7 +447,7 @@ void replicationTests() async {
     if (userList.contains(userId2)) {
       print("HAS AGREEMENT");
     }*/
- // });
+  // });
 
   /// UNPAIR TEST
 /*  test('Unpair Test', () async {
@@ -346,7 +494,7 @@ void replicationTests() async {
       print("NODE NOT FOUND. UNPAIRING ACHIEVED");
     }
   });*/
- /* test('Encrypter Test', () async {
+  /* test('Encrypter Test', () async {
     String data = "Demo";
     final keyVal = Enc.Key.fromLength(32);
     final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
@@ -354,7 +502,7 @@ void replicationTests() async {
     Enc.Encrypted encrypted = enc.encrypt(data, iv: iv);
     print(encrypted.base64);
   });*/
- /* test('Share Nodes Test', () async {
+  /* test('Share Nodes Test', () async {
     toolbox_api.StorageController storageController = await initGeigerStorage();
 
     /// INIT STORAGE WITH ALREADY GIVEN
@@ -412,15 +560,15 @@ void replicationTests() async {
     print("ATRE");
     print(keyList);*/
 
-    /// INIT STORAGE WITH ALREADY GIVEN
-    //ReplicationController rep = ReplicationService();
-    //ReplicationService ser = ReplicationService();
-   /* await rep.initGeigerStorage();
+  /// INIT STORAGE WITH ALREADY GIVEN
+  //ReplicationController rep = ReplicationService();
+  //ReplicationService ser = ReplicationService();
+  /* await rep.initGeigerStorage();
     String userId1 = "a396c2ed-59f4-4d2d-b86d-8e9b7bdb0bd0";
     String userId2 = "547b7932-6e13-4dc2-9975-15ad24dcba10";*/
 
-    /// Create a custom pairing agreement
-   /* try {
+  /// Create a custom pairing agreement
+  /* try {
       toolbox_api.Node pairParent =
           await storageController.get(":Local:Pairing");
       print(pairParent.name);
@@ -454,9 +602,12 @@ void replicationTests() async {
   test('Full Replication', () async {
     print("FULL REPLICATION TEST");
     toolbox_api.StorageController storageController = await initGeigerStorage();
-    toolbox_api.Node n = toolbox_api.NodeImpl(':Enterprise:demo', 'Replication');
-    n.addOrUpdateValue(toolbox_api.NodeValueImpl('prueba','la gente lo presentia'));
+    toolbox_api.Node n =
+        toolbox_api.NodeImpl(':Enterprise:demo', 'Replication');
+    n.addOrUpdateValue(
+        toolbox_api.NodeValueImpl('prueba', 'la gente lo presentia'));
     await storageController.addOrUpdate(n);
+
     /// INIT STORAGE
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
@@ -578,7 +729,7 @@ void replicationTests() async {
         'anyRandomUserId', formatted.toString());
     print(response);
   });*/
- /* test('get Single User Event', () async {
+  /* test('get Single User Event', () async {
     var cloud = CloudService();
     String eventId = await generateUUID();
     String userId = "replicationTest";

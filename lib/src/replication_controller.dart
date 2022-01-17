@@ -52,4 +52,7 @@ abstract class ReplicationController {
 
   /// Checks the consent of a user & if needed, asks for it
   Future<bool> checkConsent(toolbox_api.Node node, String username);
+
+  /// Updates Global Recommendations in a Cloud to Local way
+  Future<void> updateRecommendations();
 }
