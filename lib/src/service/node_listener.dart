@@ -1,26 +1,40 @@
-import 'package:geiger_api/geiger_api.dart';
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 
 class NodeListener implements toolbox_api.StorageListener {
-  final toolbox_api.Node _oldNode =
-      toolbox_api.NodeImpl(':', 'CloudReplication');
-  final toolbox_api.Node _newNode =
-      toolbox_api.NodeImpl(':', 'CloudReplication');
 
-  Future<toolbox_api.Node> get oldnode async {
-    return await _oldNode.deepClone();
-  }
+  final List<EventChange> events = [];
+  late final toolbox_api.StorageController storageController;
 
-  Future<toolbox_api.Node> get newnode async {
-    return await _newNode.deepClone();
-  }
+  NodeListener(this.storageController);
 
   @override
   Future<void> gotStorageChange(toolbox_api.EventType event,
       toolbox_api.Node? oldNode, toolbox_api.Node? newNode) async {
-    await _oldNode
-        .update(oldNode ?? toolbox_api.NodeImpl(':', 'CloudReplication'));
-    await _newNode
-        .update(newNode ?? toolbox_api.NodeImpl(':', 'CloudReplication'));
+        print("**********************************************************");
+        /*if (event.toValueString()=='delete') {
+          String path = oldNode!.path;
+          try {
+            toolbox_api.Node? old = await storageController.getNodeOrTombstone(path);
+            events.add(EventChange(toolbox_api.EventType.delete, old, null));
+          } catch (e) {
+            print("STORAGE CHANGE EXCEPTION");
+            print(e);
+          }
+        } else {*/
+          events.add(EventChange(event, oldNode, newNode));
+        //}
+  }
+}
+
+class EventChange {
+  final toolbox_api.EventType type;
+  final toolbox_api.Node? oldNode;
+  final toolbox_api.Node? newNode;
+
+  EventChange(this.type, this.oldNode, this.newNode);
+
+  @override 
+  String toString() {
+    return 'EventChange{type: $type, oldNode: $oldNode, newNode: $newNode}';
   }
 }

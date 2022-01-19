@@ -136,6 +136,7 @@ void replicationTests() async {
         .getValue('currentUser')
         .then((value) => value!.getValue("en").toString());
 
+    print("PRE TEST PAIRING");
     toolbox_api.Node devices = await storageController.get(':Devices');
     print("DEVICES NODE");
     print(devices);
@@ -144,14 +145,19 @@ void replicationTests() async {
 
     /// NOW CREATE TWO RANDOM CLOUD USERS AND SET PAIR
     ReplicationController rep = ReplicationService();
-    String u1 = 'randomUser1';
-    String u2 = 'randomUser2';
+    String u1 = '26486477-32e8-48b9-8a3a-b6d0377da98c';
+    String u2 = 'd51a9810-6e9b-4e51-8a9a-326c8b9502b0';
     //rep.createCloudUser(u1);
     //rep.createCloudUser(u2);
     await rep.initGeigerStorage();
     await rep.setPair(
-        _localUser, '222f1b1c-b3d9-43fc-886e-adb71eb76baf', 'both');
-    //await rep.setPair(_localUser, u2, 'both');
+        _localUser, u1, 'both');
+    toolbox_api.Node devices0 = await storageController.get(':Devices');
+    print("DEVICES NODE");
+    print(devices0);
+    print("DEVICE CHILDREN NODE");
+    print(await devices0.getChildren());
+    await rep.setPair(_localUser, u2, 'both');
 
     /// GET DEVICES NODE AND PRINT
     toolbox_api.Node devices1 = await storageController.get(':Devices');
@@ -162,85 +168,22 @@ void replicationTests() async {
     await rep.endGeigerStorage();
   });
   test('GET STORAGE LISTENER', () async {
-    print("LISTENER TEST");
+    print("LISTENER TEST - CHECKS DELETE BEHAVIOUR");
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     // ignore: unused_local_variable
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
-    List<MessageType> allEvents = [MessageType.allEvents];
 
-    toolbox_api.SearchCriteria sc = toolbox_api.SearchCriteria();
-    NodeListener stListener = NodeListener();
+    toolbox_api.SearchCriteria sc = toolbox_api.SearchCriteria(searchPath: ':');
+    NodeListener stListener = NodeListener(storageController);
     storageController.registerChangeListener(stListener, sc);
-    EventListener listener = EventListener('CloudReplicationListener');
-    await localMaster.registerListener(allEvents, listener);
-
-    //ADD NODES
-    toolbox_api.Node n1 =
-        toolbox_api.NodeImpl(':Local:StorageListener128', 'Replication');
-    n1.addOrUpdateValue(toolbox_api.NodeValueImpl("demo", "as"));
-    toolbox_api.Node n2 =
-        toolbox_api.NodeImpl(':Local:StorageListener9', 'Replication');
-    toolbox_api.Node n3 =
-        toolbox_api.NodeImpl(':Local:StorageListener10', 'Replication');
-    await storageController.addOrUpdate(n1);
-    //await storageController.delete(':Local:StorageListener8');
-    await storageController.addOrUpdate(n2);
-    //await storageController.delete(':Local:StorageListener9');
-    await storageController.addOrUpdate(n3);
-    //await storageController.delete(':Local:StorageListener10');
-    print("----------------------------------------------------------------");
-    //print(await stListener.newnode);
-    //print(await stListener.oldnode);
-    GeigerApi localMaster1 =
-        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
-    // ignore: unused_local_variable
-    toolbox_api.StorageController storageController1 =
-        localMaster1.getStorage()!;
-    toolbox_api.Node n11 =
-        toolbox_api.NodeImpl(':Local:StorageListener1da28', 'Replication');
-    n1.addOrUpdateValue(toolbox_api.NodeValueImpl("demo", "as"));
-    toolbox_api.Node n112 =
-        toolbox_api.NodeImpl(':Local:StorageListenesr9', 'Replication');
-    toolbox_api.Node n13 =
-        toolbox_api.NodeImpl(':Local:StoraasgeListener10', 'Replication');
-    await storageController1.addOrUpdate(n11);
-    //await storageController.delete(':Local:StorageListener8');
-    await storageController1.addOrUpdate(n112);
-    //await storageController.delete(':Local:StorageListener9');
-    await storageController1.addOrUpdate(n13);
-
-    var result = storageController.deregisterChangeListener(stListener);
-    print("----------asasasdasd....................");
-    print(result);
-    //GeigerApi demo =
-    //  (await getGeigerApi("", 'demo', Declaration.doShareData))!;
-    //NodeListener listener1 = NodeListener('DemoListener');
-    //await demo.registerListener(allEvents, listener1);
-    //ADD NODES
-    /*toolbox_api.Node n11 = toolbox_api.NodeImpl(':Local:StorageListener8','Replication');
-    toolbox_api.Node n12 = toolbox_api.NodeImpl(':Local:StorageListener9','Replication');
-    toolbox_api.Node n13 = toolbox_api.NodeImpl(':Local:StorageListener10','Replication');
-    toolbox_api.StorageController storageController1 = localMaster.getStorage()!;
-    await storageController1.add(n11);
-    await storageController1.delete(':Local:StorageListener8');
-    await storageController1.add(n12);
-    await storageController1.delete(':Local:StorageListener9');
-    await storageController1.add(n13);
-    await storageController1.delete(':Local:StorageListener10');*/
-
-    //GET EVENTS
-    List<Message> events = listener.getEvents();
-    print(
-        "-------------------------------------------------------------*************************");
-    print(events);
-    //for (var event in events) {
-//      print(event.type);
-    //    print(event.sourceId);
-    //  print(event.targetId);
-    //    print(event.requestId);
-    //  print(event.action);
-    //}
+    toolbox_api.Node l = toolbox_api.NodeImpl(':Local:aaaa', 'CloudAdapter');
+    await storageController.addOrUpdate(l);
+    print(stListener.events);
+    print("BEFORE DELETE");
+   // await storageController.delete(':Local:aaaa');
+    print("NODE DELETED");
+    await storageController.deregisterChangeListener(stListener);
   });
   /*test('GET USER PROMPT', () async {
     print("GET USER PROMPT TEST");
@@ -599,7 +542,7 @@ void replicationTests() async {
     print(await tas.getChildren());*/
   //}, timeout: Timeout(Duration(minutes: 5)));
 
-  test('Full Replication', () async {
+  /*test('Full Replication', () async {
     print("FULL REPLICATION TEST");
     toolbox_api.StorageController storageController = await initGeigerStorage();
     toolbox_api.Node n =
@@ -612,7 +555,7 @@ void replicationTests() async {
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
     await rep.geigerReplication();
-    await rep.endGeigerStorage();
+    await rep.endGeigerStorage();*/
 
     ///GET REPLICATION TLP WHITE MISP NODES
     /*toolbox_api.Node see = await storageController.get(":Global:misp");
@@ -630,7 +573,7 @@ void replicationTests() async {
         await storageController.get(':Global:ThreatWeight');
     print(threat);
     print(await threat.getChildren());*/
-  }, timeout: Timeout(Duration(minutes: 5)));
+  //}, timeout: Timeout(Duration(minutes: 5)));
   /*test('First consent approach', () async {
     toolbox_api.StorageController storageController = await initGeigerStorage();
 
