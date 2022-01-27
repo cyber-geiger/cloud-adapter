@@ -1,11 +1,11 @@
 library geiger_replication;
 
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_replication_package/src/cloud_models/recommendation.dart';
 import 'package:convert/convert.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/locale.dart';
 
@@ -25,7 +25,6 @@ import 'package:geiger_api/geiger_api.dart';
 import 'package:encrypt/encrypt.dart' as Enc;
 //import 'package:flutter/cupertino.dart';
 
-import 'event_listener.dart';
 import 'node_listener.dart';
 import '../cloud_models/event.dart';
 import '../cloud_models/short_user.dart';
@@ -38,12 +37,19 @@ class ReplicationService implements ReplicationController {
 
   /// GEIGER API
   late final GeigerApi localMaster;
+  late String pluginAPI = 'pairing_plugin';
 
   /// Storage controller
   late final toolbox_api.StorageController storageController;
 
   /// Storage Listener
   late final toolbox_api.StorageListener storageListener;
+
+  /// boolean to check listener status
+  //bool _isStorageListenerRegistered = false;
+  //bool _isStorageListenerTriggered = false;
+
+  late final String _username;
 
   ReplicationService();
 
@@ -77,7 +83,8 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
-  Future<bool> geigerReplication() async {
+  Future<bool> geigerReplication(
+      deleteHandler, createHandler, updateHandler, renameHandler) async {
     print('STARTING GEIGER REPLICATION');
 
     /// Follow diagram
@@ -102,11 +109,9 @@ class ReplicationService implements ReplicationController {
     try {
       toolbox_api.Node timeChecker =
           await getNode(':Local:Replication:LastReplication');
-      print(timeChecker);
       DateTime _lastTimestamp =
           DateTime.fromMillisecondsSinceEpoch(timeChecker.lastModified);
       Duration _diff = _actual.difference(_lastTimestamp);
-      print(_diff);
       if (_diff.inDays > 30) {
         /// FULL REPLICATION TAKES PLACE
         print("FULL REPLICATION");
@@ -119,13 +124,13 @@ class ReplicationService implements ReplicationController {
       }
     } catch (e) {
       print('NO REPLICATION NODE FOUND - NO REPLICATION HAS BEEN DONE');
-
       /// FULL REPLICATION TAKES PLACE
       _fullRep = true;
       print(e);
     }
+
     // 2. GET USER DATA - CHECK USER IN CLOUD
-    String _username;
+    print('[1st FLOW] - CHECK USER DATA');
     try {
       toolbox_api.Node local = await getNode(':Local');
       String _localUser = await local
@@ -143,7 +148,6 @@ class ReplicationService implements ReplicationController {
         _fullRep = true;
       }
     } catch (e) {
-      //print('Not user data retrieved');
       toolbox_api.StorageException('USER DATA NOT FOUND. ERROR');
       print(e);
       return false;
@@ -164,7 +168,10 @@ class ReplicationService implements ReplicationController {
 
     /// STORAGE LISTENER
     print("[5th FLOW] - LISTENER REPLICATION");
-    await storageListenerReplication(_username);
+    await geigerReplicationListener(
+        deleteHandler, createHandler, updateHandler, renameHandler);
+
+    ///await storageListenerReplication(_username, deleteHandler);
 
     return true;
   }
@@ -200,67 +207,35 @@ class ReplicationService implements ReplicationController {
       }
       if (type.toLowerCase() == "user_object") {
         print('CLOUD TO LOCAL REPLICATION - E2EE');
-        //GET KEYS
-        try {
-          ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
-          ///ELSE CREATE A NODE WITH VISIBILITY AMBER
-          ///AND REPLICATE
-
-          toolbox_api.Node keys = await getNode(':Keys:$id');
-          final hexEncodedKey = keys.getValue('key').toString();
-
-          /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
-          final onlyKey = hexEncodedKey.split(':');
-          final String decodedKey = hex.decode(onlyKey[1]).toString();
-
-          final keyVal = Enc.Key.fromUtf8(decodedKey);
-          final iv = Enc.IV.fromLength(16);
-          final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-
-          //DECRYPT DATA
-          String decrypted = enc
-              .decrypt(singleOne.content.toString() as Enc.Encrypted, iv: iv);
-          singleOne.setContent = decrypted.toString();
-
+        try {          
+          Map<dynamic, dynamic> jsonify = await decryptCloudData(singleOne);
+          singleOne.setContent = jsonEncode(jsonify);
           toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
+          await checkParents(node.path);
           await updateLocalNodeWithCloudNode(node, _username);
         } catch (e) {
+          print(e);
           /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
           waitingEvents.add(singleOne);
           print('FAILURE GETTING KEYS FOR NODE: $id');
         }
       }
-      // } else {
-      // print("PAIRED EVENT");
-      //   await updatePairedEvent(_username, singleOne);
-      //}
     }
 
+    print("WAITING EVENTS");
     for (var waiting in waitingEvents) {
       String waitingId = waiting.id_event.toString();
       try {
         ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
         ///ELSE CREATE A NODE WITH VISIBILITY AMBER
         ///AND REPLICATE
-        toolbox_api.Node keys = await getNode(':Keys:$waitingId');
-        final hexEncodedKey = keys.getValue('key').toString();
-
-        /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
-        final onlyKey = hexEncodedKey.split(':');
-        final String decodedKey = hex.decode(onlyKey[1]).toString();
-
-        final keyVal = Enc.Key.fromUtf8(decodedKey);
-        final iv = Enc.IV.fromLength(16);
-        final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-
-        //DECRYPT DATA
-        String decrypted =
-            enc.decrypt(waiting.content.toString() as Enc.Encrypted, iv: iv);
-        waiting.setContent = decrypted.toString();
-
+        Map<dynamic, dynamic> jsonify = await decryptCloudData(waiting);
+        waiting.setContent = jsonEncode(jsonify);
         toolbox_api.Node node = convertJsonStringToNode(waiting.content!);
-        await updateLocalNodeWithCloudNode(node, _username);
+        await checkParents(node.path);
+        await updateLocalNodeWithCloudNode(node, _username);   
       } catch (e) {
+        print(e);
         print('FAILURE GETTING KEYS FOR NODE: $waitingId');
       }
     }
@@ -280,7 +255,6 @@ class ReplicationService implements ReplicationController {
   Future<void> localToCloudReplication(String _username, DateTime _actual,
       DateTime _fromDate, bool _fullRep) async {
     print("REPLICATION - LOCAL TO CLOUD NODES REPLICATION");
-
     /// START OF THE SECOND DIAGRAM
     /// START CLEANING DATA AND REMOVING TOMBSTONES
     cleanData(_actual);
@@ -346,60 +320,7 @@ class ReplicationService implements ReplicationController {
           if (tlp.toLowerCase() == 'red') {
             print("TLP:RED NODE");
             try {
-              ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
-              ///ELSE - CREATE NEW KEY
-              toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria(
-                  searchPath: ':Keys', value: fullPath);
-              List<toolbox_api.Node> keyList =
-                  await storageController.search(criteria);
-              toolbox_api.Node? keys;
-              if (keyList.isNotEmpty) {
-                /// SHOULD RETURN ONLY ONE NODE
-                keys = keyList.first;
-              } else {
-                /// IF A PRE EXISTING KEY DOES NOT EXIST
-                /// CREATE NEW ONE AND A NODE
-                /// REPLICATE KEY TO CLOUD
-                toolbox_api.Node newKey = toolbox_api.NodeImpl(
-                    ':Keys:$identifier', _username);
-                newKey.addOrUpdateValue(
-                    toolbox_api.NodeValueImpl('path', fullPath));
-                final nodeKey = Enc.Key.fromSecureRandom(32).base64.toString();
-                newKey.addOrUpdateValue(
-                    toolbox_api.NodeValueImpl('key', 'aes-256-cfb:$nodeKey'));
-                toolbox_api.Visibility? checkerVisible =
-                    toolbox_api.VisibilityExtension.valueOf("amber");
-                if (checkerVisible != null) {
-                  newKey.visibility = checkerVisible;
-                }
-                await storageController.add(newKey);
-                /// POST KEY EVENT
-                String keyUUID = await cloud.generateUUID();
-                Event keyEvent = Event(id_event: keyUUID, tlp: "AMBER");
-                keyEvent.owner = _username;
-                keyEvent.encoding = 'ascii';
-                keyEvent.content =
-                  json.encode(await convertNodeToJsonString(newKey));
-                await cloud.createEvent(_username, keyEvent);
-                keys = newKey;
-              }
-              final hexEncodedKey = await keys
-                  .getValue('key')
-                  .then((value) => value!.getValue("en").toString());
-
-              /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
-              final onlyKey = hexEncodedKey.split(':');
-              final String decodedKey =
-                  onlyKey[1]; //hex.decode(onlyKey[1]).toString();
-              print("KEY USED TO ENCRYPT NODE DATA: " + decodedKey);
-              final keyVal = Enc.Key.fromBase64(decodedKey);
-              final iv = Enc.IV.fromLength(16);
-              final enc =
-                  Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-              var convertedNode = await convertNodeToJsonString(sorted);
-              Enc.Encrypted encrypted = enc
-                  .encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
-              convertedNode['custom_fields'] = encrypted.base64;
+              var convertedNode = await encryptCloudData(sorted);
               toCheck.content = json.encode(convertedNode);
             } catch (e) {
               print(e);
@@ -554,7 +475,7 @@ class ReplicationService implements ReplicationController {
         await cloud.createMerge(userId2, userId1, complementValue, type);
       }
     }
-    print('GET SHARED NODES');
+    print('GET SHARED NODES BETWEEN PAIRED USERS');
     await getSharedNodes(userId1, userId2);
     return true;
   }
@@ -719,15 +640,8 @@ class ReplicationService implements ReplicationController {
             toPostEvent.encoding = 'ascii';
             //EncryptNode
             try {
-              final keyVal = Enc.Key.fromUtf8(encryptedKey);
-              final enc =
-                  Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-              final iv = Enc.IV.fromLength(16);
-              var convertedNode = await convertNodeToJsonString(toShareNode);
-              Enc.Encrypted encrypted = enc
-                  .encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
-              convertedNode['custom_fields'] = encrypted.base64;
-              toPostEvent.setContent = jsonEncode(convertedNode);
+              Map<dynamic, dynamic> jsonify = await encryptCloudData(toShareNode);
+              toPostEvent.setContent = jsonEncode(jsonify);
             } catch (e) {
               print("ISSUE ENCRYPTING DATA");
               toPostEvent.setContent =
@@ -756,6 +670,9 @@ class ReplicationService implements ReplicationController {
   @override
   Future<bool> getSharedNodes(
       String receiverUserId, String senderUserId) async {
+    print(
+        "***************************************************************************");
+
     /// get receiverNodes
     /// cloud API retrieves also the shared ones
     /// check the Event owner to differenciate
@@ -796,6 +713,7 @@ class ReplicationService implements ReplicationController {
             /// get user nodes
             List<String> allEvents = await cloud.getUserEvents(receiverUserId);
             List<Event> waitingEvents = [];
+            print("GET USER SHARED EVENTS");
             for (var event in allEvents) {
               Event newEvent =
                   await cloud.getSingleUserEvent(receiverUserId, event);
@@ -804,77 +722,49 @@ class ReplicationService implements ReplicationController {
               var type = newEvent.type;
               if (owner != null) {
                 print("EVENT OWNER: $owner - SENDER ID: $senderUserId");
-                //if (owner == senderUserId) {
-                  Map<String, dynamic> data;
-                  if (newEvent.content != null) {
-                    if (type!.toLowerCase() == "keyvalue") {
-                      print('CLOUD TO LOCAL REPLICATION - NO E2EE');
-                      toolbox_api.Node node = convertJsonStringToNode(newEvent.content!);
-                      await updateLocalNodeWithCloudNode(node, senderUserId);
-                    }
-                    if (type.toLowerCase() == "user_object") {
-                      print('CLOUD TO LOCAL REPLICATION - E2EE');
-                      //GET KEYS
-                      try {
-                        ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
-                        ///ELSE CREATE A NODE WITH VISIBILITY AMBER
-                        ///AND REPLICATE
+                //Map<String, dynamic> data;
+                if (newEvent.content != null) {
+                  if (type!.toLowerCase() == "keyvalue") {
+                    print('CLOUD TO LOCAL REPLICATION - NO E2EE');
+                    toolbox_api.Node node =
+                        convertJsonStringToNode(newEvent.content!);
 
-                        toolbox_api.Node keys = await getNode(':Keys:$id');
-                        final hexEncodedKey = keys.getValue('key').toString();
-
-                        /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
-                        final onlyKey = hexEncodedKey.split(':');
-                        final String decodedKey = hex.decode(onlyKey[1]).toString();
-
-                        final keyVal = Enc.Key.fromUtf8(decodedKey);
-                        final iv = Enc.IV.fromLength(16);
-                        final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-
-                        //DECRYPT DATA
-                        String decrypted = enc
-                            .decrypt(newEvent.content.toString() as Enc.Encrypted, iv: iv);
-                        newEvent.setContent = decrypted.toString();
-
-                        toolbox_api.Node node = convertJsonStringToNode(newEvent.content!);
-                        await updateLocalNodeWithCloudNode(node, senderUserId);
-                      } catch (e) {
-                        /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
-                        waitingEvents.add(newEvent);
-                        print('FAILURE GETTING KEYS FOR NODE: $id');
-                      }
-                    /*try {
-                      /// DECRYPT CONTENT AND SET NEW NODE
-                      final keyVal1 =
-                          Enc.Key.fromUtf8(encryptedKey.split(':')[1]);
-                      final enc1 = Enc.Encrypter(
-                          Enc.AES(keyVal1, mode: Enc.AESMode.cfb64));
-                      final iv1 = Enc.IV.fromLength(16);
-                      //DECRYPT DATA
-                      data = json.decode(enc1.decrypt(
-                          (newEvent.content!) as Enc.Encrypted,
-                          iv: iv1));
-                    } catch (e) {
-                      data = json.decode(newEvent.content!);
-                    }*/
-
-                    /// CREATE NODE
-                   /* toolbox_api.Node newSharedNode =
-                        convertJsonStringToNode(json.encode(data));
-                    newSharedNode.owner = owner;
+                    /// RENAME NODE TO ADD PLUGIN ID
+                    String newPath = node.path
+                        .replaceAll(node.name, pluginAPI + ":" + node.name);
+                    await checkParents(newPath);
+                    await storageController.rename(
+                        node.path,
+                        node.path.replaceAll(
+                            node.name, pluginAPI + ":" + node.name));
+                    await updateLocalNodeWithCloudNode(node, senderUserId);
+                  }
+                  if (type.toLowerCase() == "user_object") {
+                    print('CLOUD TO LOCAL REPLICATION - E2EE');
+                    //GET KEYS
                     try {
-                      // CHECK IF NODE EXISTS
-                      toolbox_api.Node exists =
-                          await getNode(newSharedNode.path);
-                      print("NODE WITH PATH: " + exists.path);
-                      await storageController.update(newSharedNode);
+                      ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
+                      ///ELSE CREATE A NODE WITH VISIBILITY AMBER
+                      ///AND REPLICATE
+                      Map<dynamic, dynamic> jsonify = await decryptCloudData(newEvent);
+                      newEvent.setContent = jsonEncode(jsonify);
+                      toolbox_api.Node node = convertJsonStringToNode(newEvent.content!);
+
+                      String newPath = node.path
+                          .replaceAll(node.name, pluginAPI + "." + node.name);
+                      await checkParents(newPath);
+                      await storageController.rename(
+                          node.path,
+                          node.path
+                              .replaceAll(node.name, pluginAPI + ":" + node.name));
+                      await updateLocalNodeWithCloudNode(node, senderUserId);
                     } catch (e) {
-                      print("PAIRED NODE DOES NOT EXIST");
-                      await storageController.add(newSharedNode);
-                    }*/
+                      /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
+                      waitingEvents.add(newEvent);
+                      print('FAILURE GETTING KEYS FOR NODE: $id');
                     }
                   }
-               // }
+                }
               }
             }
             for (var waiting in waitingEvents) {
@@ -883,24 +773,18 @@ class ReplicationService implements ReplicationController {
               try {
                 ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
                 ///ELSE CREATE A NODE WITH VISIBILITY AMBER
-                ///AND REPLICATE
-                toolbox_api.Node keys = await getNode(':Keys:$waitingId');
-                final hexEncodedKey = keys.getValue('key').toString();
-
-                /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
-                final onlyKey = hexEncodedKey.split(':');
-                final String decodedKey = hex.decode(onlyKey[1]).toString();
-
-                final keyVal = Enc.Key.fromUtf8(decodedKey);
-                final iv = Enc.IV.fromLength(16);
-                final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-
-                //DECRYPT DATA
-                String decrypted =
-                    enc.decrypt(waiting.content.toString() as Enc.Encrypted, iv: iv);
-                waiting.setContent = decrypted.toString();
-
+                ///AND REPLICATE              
+                Map<dynamic, dynamic> jsonify = await decryptCloudData(waiting);
+                waiting.setContent = jsonEncode(jsonify);
                 toolbox_api.Node node = convertJsonStringToNode(waiting.content!);
+
+                String newPath = node.path
+                    .replaceAll(node.name, pluginAPI + "." + node.name);
+                await checkParents(newPath);
+                await storageController.rename(
+                    node.path,
+                    node.path
+                        .replaceAll(node.name, pluginAPI + ":" + node.name));
                 await updateLocalNodeWithCloudNode(node, senderUserId);
               } catch (e) {
                 print('FAILURE GETTING KEYS FOR NODE: $waitingId');
@@ -908,11 +792,13 @@ class ReplicationService implements ReplicationController {
             }
           }
         } catch (e) {
+          print(e);
           return false;
           //throw CloudException('There is no active cloud agreement');
         }
       }
     } catch (e) {
+      print(e);
       return false;
       //throw toolbox_api.StorageException('Key Node not found');
     }
@@ -967,7 +853,7 @@ class ReplicationService implements ReplicationController {
     print("INIT GEIGER API");
     try {
       localMaster = (await getGeigerApi(
-          "", GeigerApi.masterId, Declaration.doShareData))!;
+          "cloud_adapter", GeigerApi.masterId, Declaration.doShareData))!;
       print(localMaster);
       return localMaster;
     } catch (e, s) {
@@ -999,13 +885,13 @@ class ReplicationService implements ReplicationController {
       //print('CREATE NEW REPLICATION NODE');
       toolbox_api.Node parentNode =
           toolbox_api.NodeImpl(':Local:Replication', 'ReplicationController');
-      await storageController.add(parentNode);
+      await storageController.addOrUpdate(parentNode);
       toolbox_api.Node newRepNode = toolbox_api.NodeImpl(
           ':Local:Replication:LastReplication', 'ReplicationController');
 
       /// storageController.add(newRepNode);
       newRepNode.lastModified = _actual.millisecondsSinceEpoch;
-      await storageController.add(newRepNode);
+      await storageController.addOrUpdate(newRepNode);
     }
     //print('[REPLICATION NODE] UPDATED');
   }
@@ -1066,22 +952,22 @@ class ReplicationService implements ReplicationController {
     for (var free in freeEvents) {
       /// UUID WILL BE THE CLOUD ONE
       /// DATA MAY NOT COME FROM STORAGE AND USER ANOTHER UUID
-      String typeTLP = free.type.toString();
+      //String typeTLP = free.type.toString();
       String uuid = free.id_event;
       DateTime cloudTimestamp = DateTime.parse(free.last_modified.toString());
       if (free.content.toString().isNotEmpty) {
         try {
           ///var content = jsonDecode(free.content!);
-          String nodePath = ':Global:$typeTLP:$uuid';
+          String nodePath = ':Global:$uuid';
 
           /// CHECK IF typeTLP node created
           try {
             // ignore: unused_local_variable
-            toolbox_api.Node typeChecker = await getNode(':Global:$typeTLP');
+            toolbox_api.Node typeChecker = await getNode(':Global');
           } catch (e) {
             /// CREATE NODE FOR TYPE of TLP WHITE EVENT
             toolbox_api.Node typeChecker =
-                toolbox_api.NodeImpl(':Global:$typeTLP', free.owner.toString());
+                toolbox_api.NodeImpl(':Global', free.owner.toString());
             toolbox_api.Visibility? checkerVisible =
                 toolbox_api.VisibilityExtension.valueOf("white");
             if (checkerVisible != null) {
@@ -1097,14 +983,14 @@ class ReplicationService implements ReplicationController {
             newRepNode.visibility = visible;
           }
           //LOOP ALL ELEMENTS
-          newRepNode.addOrUpdateValue(
-              toolbox_api.NodeValueImpl("tlpWHITE", free.content!));
+          //newRepNode.addOrUpdateValue(
+          // toolbox_api.NodeValueImpl("tlpWHITE", free.content!));
           //await storageController.update(newRepNode);
-          /*Map<dynamic, dynamic> mapper = content;*/
-          /*mapper.forEach((key, value) {
+          Map<dynamic, dynamic> mapper = json.decode(free.content!);
+          mapper.forEach((key, value) {
             newRepNode.addOrUpdateValue(
                 toolbox_api.NodeValueImpl(key, value.toString()));
-          });*/
+          });
           await updateLocalNodeWithNewNode(
               nodePath, newRepNode, cloudTimestamp);
         } catch (e) {
@@ -1139,14 +1025,14 @@ class ReplicationService implements ReplicationController {
         try {
           toolbox_api.Node checker =
               await getNode(':Global:ThreatWeight:$uuid');
-          /*Map<String, dynamic> mapper = data.toJson();
+          Map<String, dynamic> mapper = data.toJson();
           mapper.forEach((key, value) {
             checker.addOrUpdateValue(
                 toolbox_api.NodeValueImpl(key, value.toString()));
-          });*/
+          });
           // add all the fields in a single json string
-          checker.addOrUpdateValue(
-              toolbox_api.NodeValueImpl('threatJson', jsonEncode(data)));
+          //checker.addOrUpdateValue(
+          //  toolbox_api.NodeValueImpl('threatJson', jsonEncode(data)));
           await storageController.update(checker);
         } catch (e) {
           toolbox_api.Node newThreatNode =
@@ -1218,36 +1104,9 @@ class ReplicationService implements ReplicationController {
     }
   }
 
-  Future<void> storageListenerReplication(String _username) async {
-
-    List<Map<dynamic, dynamic>> cloudNodeList = [];
-    List<String> cloudNodePath = [];
-    List<Event> cloudEvents = [];
-    List<String> userEvents = [];
-    try {
-      userEvents = await cloud.getUserEvents(_username);
-      for (var cloudEvent in userEvents) {
-        try {
-          Event newCloudEvent =
-              await cloud.getSingleUserEvent(_username, cloudEvent);
-          Map<dynamic, dynamic> data =
-              getPartialJsonString(newCloudEvent.content!);
-          cloudNodeList.add(data);
-          cloudNodePath.add(data['path']);
-          cloudEvents.add(newCloudEvent);
-        } catch (e) {
-          print("ERROR GETTING SINGLE USER EVENT");
-        }
-      }
-    } catch (e) {
-      print("ERROR GETTING CLOUD USER EVENTS");
-    }
-
-    ///ALL ABOUT LISTENER
-    toolbox_api.SearchCriteria sc = toolbox_api.SearchCriteria();
-    NodeListener stListener = NodeListener(storageController);
-    storageController.registerChangeListener(stListener, sc);
-    List<EventChange> events = stListener.events;
+  Future<void> storageListenerReplication(String _username,
+      [Function? deleteHandler]) async {
+    /*List<EventChange> events = stListener.events;
 
     for (var event in events) {
       String eType = event.type.toValueString();
@@ -1259,17 +1118,17 @@ class ReplicationService implements ReplicationController {
       print("STORAGE LISTENER EVENT TYPE: $eType");
       if (eType == 'delete') {
         print("STORAGE LISTENER - DELETE NODE");
-        if (cloudNodePath.contains(oldNode!.path)){
+        if (cloudNodePath.contains(oldNode!.path)) {
           int index = cloudNodePath.indexOf(oldNode.path);
           await cloud.deleteEvent(_username, userEvents[index]);
         }
       } else {
         /// CHECK IF NODE CAN BE REPLICATED
-        if( tlp.toLowerCase() != 'black' && newNode!=null &&
+        if (tlp.toLowerCase() != 'black' &&
+            newNode != null &&
             newNode.path.startsWith(':Local') == false &&
             newNode.path.startsWith(':Global') == false &&
             newNode.tombstone == false) {
-         
           String uuid = await cloud.generateUUID();
           Event toCheck = Event(id_event: uuid, tlp: tlp.toUpperCase());
           toCheck.encoding = 'ascii';
@@ -1278,9 +1137,10 @@ class ReplicationService implements ReplicationController {
             try {
               ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
               ///ELSE - CREATE NEW KEY
-              toolbox_api.SearchCriteria criteria =
-                toolbox_api.SearchCriteria(searchPath: ':Keys', value: fullPath);
-              List<toolbox_api.Node> keyList = await storageController.search(criteria);
+              toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria(
+                  searchPath: ':Keys', value: fullPath);
+              List<toolbox_api.Node> keyList =
+                  await storageController.search(criteria);
               toolbox_api.Node? keys;
               if (keyList.isNotEmpty) {
                 /// SHOULD RETURN ONLY ONE NODE
@@ -1288,12 +1148,15 @@ class ReplicationService implements ReplicationController {
               } else {
                 /// IF A PRE EXISTING KEY DOES NOT EXIST
                 /// CREATE NEW ONE AND A NODE
-                toolbox_api.Node newKey = toolbox_api.NodeImpl(':Keys:$identifier', 'Cloud-Replication');
-                newKey.addOrUpdateValue(toolbox_api.NodeValueImpl('path', fullPath));
+                toolbox_api.Node newKey = toolbox_api.NodeImpl(
+                    ':Keys:$identifier', 'Cloud-Replication');
+                newKey.addOrUpdateValue(
+                    toolbox_api.NodeValueImpl('path', fullPath));
                 final nodeKey = Enc.Key.fromSecureRandom(32).base64.toString();
-                newKey.addOrUpdateValue(toolbox_api.NodeValueImpl('key', 'aes-256-cfb:$nodeKey'));
+                newKey.addOrUpdateValue(
+                    toolbox_api.NodeValueImpl('key', 'aes-256-cfb:$nodeKey'));
                 toolbox_api.Visibility? checkerVisible =
-                  toolbox_api.VisibilityExtension.valueOf("amber");
+                    toolbox_api.VisibilityExtension.valueOf("amber");
                 if (checkerVisible != null) {
                   newKey.visibility = checkerVisible;
                 }
@@ -1301,46 +1164,50 @@ class ReplicationService implements ReplicationController {
                 keys = newKey;
               }
               final hexEncodedKey = await keys
-                .getValue('key')
-                .then((value) => value!.getValue("en").toString());
+                  .getValue('key')
+                  .then((value) => value!.getValue("en").toString());
+
               /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
               final onlyKey = hexEncodedKey.split(':');
-              final String decodedKey = onlyKey[1];//hex.decode(onlyKey[1]).toString();
+              final String decodedKey =
+                  onlyKey[1]; //hex.decode(onlyKey[1]).toString();
               print("KEY USED TO ENCRYPT NODE DATA: " + decodedKey);
               final keyVal = Enc.Key.fromBase64(decodedKey);
               final iv = Enc.IV.fromLength(16);
               final enc =
                   Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
               var convertedNode = await convertNodeToJsonString(newNode);
-              Enc.Encrypted encrypted =
-                  enc.encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
+              Enc.Encrypted encrypted = enc
+                  .encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
               convertedNode['custom_fields'] = encrypted.base64;
               toCheck.content = json.encode(convertedNode);
             } catch (e) {
               print(e);
-              toCheck.content = json.encode(await convertNodeToJsonString(newNode));
+              toCheck.content =
+                  json.encode(await convertNodeToJsonString(newNode));
               print('FAILURE GETTING KEYS');
             }
             toCheck.type = 'user_object';
           } else {
             toCheck.type = 'keyvalue';
-            toCheck.content = json.encode(await convertNodeToJsonString(newNode));
+            toCheck.content =
+                json.encode(await convertNodeToJsonString(newNode));
           }
           toCheck.owner = _username;
-          
+
           // CHECK EVENT TYPE
-          if (eType=='create') {
+          if (eType == 'create') {
             // CREATE NODE IN CLOUD
             await cloud.createEvent(_username, toCheck);
           } else {
             if (eType == 'update') {
               // CHECK IF EXISTS
-              // IF NOT - CREATE 
+              // IF NOT - CREATE
               // ELSE - UPDATE
               if (cloudNodePath.contains(fullPath)) {
                 int index = cloudNodePath.indexOf(fullPath);
                 await cloud.updateEvent(_username, userEvents[index], toCheck);
-              } else  {
+              } else {
                 await cloud.createEvent(_username, toCheck);
               }
             } else {
@@ -1348,7 +1215,7 @@ class ReplicationService implements ReplicationController {
                 // CHECK IF OLD EXIST
                 // IF EXIST - DELETE
                 // CREATE NEW ONE
-                if (cloudNodePath.contains(oldNode!.path)){
+                if (cloudNodePath.contains(oldNode!.path)) {
                   int index = cloudNodePath.indexOf(oldNode.path);
                   await cloud.deleteEvent(_username, userEvents[index]);
                 }
@@ -1358,8 +1225,7 @@ class ReplicationService implements ReplicationController {
           }
         }
       }
-    }
-
+    }*/
   }
 
   Future<List<toolbox_api.Node>> getAllNodes() async {
@@ -1650,8 +1516,7 @@ class ReplicationService implements ReplicationController {
       //var name = mapper['name'];
       //var parentPath = mapper['parentPath'];
       //var extendedLastModified = mapper['extendedLastModified'];
-      //var tombstone = mapper['tombstone'];
-      List customFields = mapper['custom_fields'];
+      //var tombstone = mapper['tombstone'];      
       toolbox_api.Node node = toolbox_api.NodeImpl(path, owner);
       toolbox_api.Visibility? checkerVisible =
           toolbox_api.VisibilityExtension.valueOf(visibility);
@@ -1659,35 +1524,38 @@ class ReplicationService implements ReplicationController {
         node.visibility = checkerVisible;
       }
       node.lastModified = lastModified;
-
-      for (var custom in customFields) {
-        var key = custom['key'];
-        var value = custom['value'];
-        var nodeDescription = custom['nodeDescription'];
-        var valueTranslations = custom['valueTranslations'];
-        var descriptionTranslations = custom['descriptionTranslations'];
-        toolbox_api.NodeValue nodeValue =
-            toolbox_api.NodeValueImpl(key, value.toString());
-        for (var translation in valueTranslations) {
-          var tr = translation['value'];
-          if (tr != null && tr != "") {
-            nodeValue.setValue(translation['value'],
-                Locale.fromSubtags(languageCode: translation['key']));
-          }
-        }
-        if (nodeDescription != null) {
-          nodeValue.setDescription(nodeDescription);
-          for (var description in descriptionTranslations) {
-            var dr = description['value'];
-            if (dr != null && dr != "") {
-              nodeValue.setValue(description['value'],
-                  Locale.fromSubtags(languageCode: description['key']));
+      if (mapper['custom_fields']!='[]') {
+        List customFields = ((mapper['custom_fields']));
+        if (customFields.isNotEmpty) {
+          for (var custom in customFields) {
+            var key = custom['key'];
+            var value = custom['value'];
+            var nodeDescription = custom['nodeDescription'];
+            var valueTranslations = custom['valueTranslations'];
+            var descriptionTranslations = custom['descriptionTranslations'];
+            toolbox_api.NodeValue nodeValue =
+                toolbox_api.NodeValueImpl(key, value.toString());
+            for (var translation in valueTranslations) {
+              var tr = translation['value'];
+              if (tr != null && tr != "") {
+                nodeValue.setValue(translation['value'],
+                    Locale.fromSubtags(languageCode: translation['key']));
+              }
             }
+            if (nodeDescription != null) {
+              nodeValue.setDescription(nodeDescription);
+              for (var description in descriptionTranslations) {
+                var dr = description['value'];
+                if (dr != null && dr != "") {
+                  nodeValue.setValue(description['value'],
+                      Locale.fromSubtags(languageCode: description['key']));
+                }
+              }
+            }
+            node.addOrUpdateValue(nodeValue);
           }
         }
-        node.addOrUpdateValue(nodeValue);
       }
-
       return node;
     } catch (e) {
       print(e);
@@ -1780,10 +1648,336 @@ class ReplicationService implements ReplicationController {
     }
   }
 
+  /// *******************************
+  /// UTILS METHOD
+  /// *******************************
+
+  /// CHECKS IF THE PARENT NODE IS CREATED
+  /// IF NOT CREATES PARENT NODE IN A RECURSIVE WAY
+  Future<bool> checkParents(String path) async {
+    bool exist = false;
+    //PATH MUST BE SPLITTED BY ':'
+    List<String> splittedPath = path.split(':');
+    String createPath = '';
+    print(splittedPath);
+    for (var p in splittedPath) {
+      print(p);
+
+      /// GET NODE - IF EXISTS - GO TO NEXT
+      /// ELSE - CREATE NODE
+      if (p.isNotEmpty) {
+        createPath = createPath + ':' + p;
+        print(createPath);
+        try {
+          // ignore: unused_local_variable
+          toolbox_api.Node nodeChecker = await getNode(createPath);
+        } catch (e) {
+          print("PARENT NODE DOES NOT EXIST - CREATE NEW ONE");
+          toolbox_api.Node parentNode =
+              toolbox_api.NodeImpl(createPath, 'CloudAdapter');
+          try {
+            await storageController.addOrUpdate(parentNode);
+          } catch (e) {
+            print(e);
+            exist = false;
+            return exist;
+          }
+        }
+      }
+    }
+    exist = true;
+    return exist;
+  }
+
   @override
   Future<void> endGeigerStorage() async {
     flushGeigerApiCache();
     await localMaster.zapState();
     await localMaster.close();
+  }
+
+  List<Map<dynamic, dynamic>> cloudNodeList = [];
+  List<String> cloudNodePath = [];
+  List<Event> cloudEvents = [];
+  List<String> userEvents = [];
+  @override
+  Future<void> geigerReplicationListener(
+      deleteHandler, createHandler, updateHandler, renameHandler) async {
+    try {
+      userEvents = await cloud.getUserEvents(_username);
+      for (var cloudEvent in userEvents) {
+        try {
+          Event newCloudEvent =
+              await cloud.getSingleUserEvent(_username, cloudEvent);
+          Map<dynamic, dynamic> data =
+              getPartialJsonString(newCloudEvent.content!);
+          cloudNodeList.add(data);
+          cloudNodePath.add(data['path']);
+          cloudEvents.add(newCloudEvent);
+        } catch (e) {
+          print("ERROR GETTING SINGLE USER EVENT");
+        }
+      }
+    } catch (e) {
+      print("ERROR GETTING CLOUD USER EVENTS");
+    }
+
+    ///ALL ABOUT LISTENER
+    toolbox_api.SearchCriteria sc = toolbox_api.SearchCriteria();
+    NodeListener stListener = NodeListener();
+
+    EventChange eventDelete =
+        EventChange(toolbox_api.EventType.delete, null, null);
+    print(eventDelete);
+    stListener.addEventHandler(eventDelete, deleteHandler);
+    //await storageController.registerChangeListener(stListener, sc);
+    EventChange eventCreate =
+        EventChange(toolbox_api.EventType.create, null, null);
+    stListener.addEventHandler(eventCreate, createHandler!);
+    //await storageController.registerChangeListener(stListener, sc);
+    EventChange eventUpdate =
+        EventChange(toolbox_api.EventType.update, null, null);
+    stListener.addEventHandler(eventUpdate, updateHandler!);
+    //await storageController.registerChangeListener(stListener, sc);
+    EventChange eventRename =
+        EventChange(toolbox_api.EventType.rename, null, null);
+    stListener.addEventHandler(eventRename, renameHandler!);
+    await storageController.registerChangeListener(stListener, sc);
+  }
+
+  @override
+  Future<void> renameHanlder(EventChange event) async {
+    // String fullPath = event.newNode!.path;
+    toolbox_api.Node? oldNode = event.getOldNode;
+    Event toCheck = await handlerEvent(event);
+    if (cloudNodePath.contains(oldNode!.path)) {
+      int index = cloudNodePath.indexOf(oldNode.path);
+      await cloud.deleteEvent(_username, userEvents[index]);
+    }
+    await cloud.createEvent(_username, toCheck);
+  }
+
+  @override
+  Future<void> updateHanlder(EventChange event) async {
+    String fullPath = event.newNode!.path;
+    Event toCheck = await handlerEvent(event);
+    if (cloudNodePath.contains(fullPath)) {
+      int index = cloudNodePath.indexOf(fullPath);
+      await cloud.updateEvent(_username, userEvents[index], toCheck);
+    } else {
+      await cloud.createEvent(_username, toCheck);
+    }
+  }
+
+  @override
+  Future<void> createHandler(EventChange event) async {
+    Event toCheck = await handlerEvent(event);
+    await cloud.createEvent(_username, toCheck);
+  }
+
+  @override
+  void deleteHandler(EventChange event) async {
+    String eType = event.type.toValueString();
+    toolbox_api.Node? oldNode = event.oldNode;
+    print("STORAGE LISTENER EVENT TYPE: $eType");
+    if (eType == 'delete') {
+      print("STORAGE LISTENER - DELETE NODE");
+      if (cloudNodePath.contains(oldNode!.path)) {
+        int index = cloudNodePath.indexOf(oldNode.path);
+        await cloud.deleteEvent(_username, userEvents[index]);
+      }
+    }
+  }
+
+  Future<Event> handlerEvent(EventChange event) async {
+    //String eType = event.type.toValueString();
+    String tlp = event.newNode!.visibility.toValueString();
+    String fullPath = event.newNode!.path;
+    String identifier = event.newNode!.name;
+    toolbox_api.Node? newNode = event.getNewNode;
+    //toolbox_api.Node? oldNode = event.getOldNode;
+    String uuid = await cloud.generateUUID();
+    Event toCheck = Event(id_event: uuid, tlp: tlp.toUpperCase());
+    if (tlp.toLowerCase() != 'black' &&
+        newNode != null &&
+        newNode.path.startsWith(':Local') == false &&
+        newNode.path.startsWith(':Global') == false &&
+        newNode.tombstone == false) {
+      toCheck.encoding = 'ascii';
+      if (tlp.toLowerCase() == 'red') {
+        print("TLP:RED NODE");
+        try {
+          ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
+          ///ELSE - CREATE NEW KEY
+          toolbox_api.SearchCriteria criteria =
+              toolbox_api.SearchCriteria(searchPath: ':Keys', value: fullPath);
+          List<toolbox_api.Node> keyList =
+              await storageController.search(criteria);
+          toolbox_api.Node? keys;
+          if (keyList.isNotEmpty) {
+            /// SHOULD RETURN ONLY ONE NODE
+            keys = keyList.first;
+          } else {
+            /// IF A PRE EXISTING KEY DOES NOT EXIST
+            /// CREATE NEW ONE AND A NODE
+            toolbox_api.Node newKey =
+                toolbox_api.NodeImpl(':Keys:$identifier', 'Cloud-Replication');
+            newKey
+                .addOrUpdateValue(toolbox_api.NodeValueImpl('path', fullPath));
+            final nodeKey = Enc.Key.fromSecureRandom(32).base64.toString();
+            newKey.addOrUpdateValue(
+                toolbox_api.NodeValueImpl('key', 'aes-256-cfb:$nodeKey'));
+            toolbox_api.Visibility? checkerVisible =
+                toolbox_api.VisibilityExtension.valueOf("amber");
+            if (checkerVisible != null) {
+              newKey.visibility = checkerVisible;
+            }
+            await storageController.add(newKey);
+            keys = newKey;
+          }
+          final hexEncodedKey = await keys
+              .getValue('key')
+              .then((value) => value!.getValue("en").toString());
+
+          /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
+          final onlyKey = hexEncodedKey.split(':');
+          final String decodedKey =
+              onlyKey[1]; //hex.decode(onlyKey[1]).toString();
+          print("KEY USED TO ENCRYPT NODE DATA: " + decodedKey);
+          final keyVal = Enc.Key.fromBase64(decodedKey);
+          final iv = Enc.IV.fromLength(16);
+          final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+          var convertedNode = await convertNodeToJsonString(newNode);
+          Enc.Encrypted encrypted =
+              enc.encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
+          convertedNode['custom_fields'] = encrypted.base64;
+          toCheck.content = json.encode(convertedNode);
+        } catch (e) {
+          print(e);
+          toCheck.content = json.encode(await convertNodeToJsonString(newNode));
+          print('FAILURE GETTING KEYS');
+        }
+        toCheck.type = 'user_object';
+      } else {
+        toCheck.type = 'keyvalue';
+        toCheck.content = json.encode(await convertNodeToJsonString(newNode));
+      }
+      toCheck.owner = _username;
+    }
+    return toCheck;
+  }
+
+  @override
+  Future<void> addSettingsConsent(String username, bool settingsValue) async {
+    try {
+      toolbox_api.Node consentNode = await getNode(':Local:Consent:$username');
+      String consentValue = await consentNode
+          .getValue('settingsConsent')
+          .then((value) => value!.getValue("en").toString());
+      if (consentValue != settingsValue.toString()) {
+        consentNode.addOrUpdateValue(toolbox_api.NodeValueImpl(
+            'settingsConsent', settingsValue.toString()));
+        await storageController.addOrUpdate(consentNode);
+      }
+    } catch (e) {
+      print("CONSENT NODE NOT FOUND. CREATE CONSENT PARENT NODE");
+      toolbox_api.Node consentNode =
+          toolbox_api.NodeImpl(':Local:Consent', 'ReplicationController');
+      consentNode.addOrUpdateValue(toolbox_api.NodeValueImpl(
+          'settingsConsent', settingsValue.toString()));
+      await storageController.addOrUpdate(consentNode);
+    }
+  }
+
+  Future<Map> decryptCloudData(Event event) async {
+    print("DECRYPT CLOUD DATA");
+    try {
+      Map<dynamic, dynamic> data =
+        getPartialJsonString(event.content!);
+      toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria(
+              searchPath: ':Keys', value: data['path']);
+      List<toolbox_api.Node> keyList =
+          await storageController.search(criteria);
+
+      toolbox_api.Node keys = keyList[0];
+      final hexEncodedKey = await keys
+              .getValue('key')
+              .then((value) => value!.getValue("en").toString());
+
+      /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
+      final onlyKey = hexEncodedKey.split(':');
+      final String decodedKey = (onlyKey[1]).toString();
+      final keyVal = Enc.Key.fromBase64(decodedKey);
+      final iv = Enc.IV.fromLength(16);
+      final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+      //DECRYPT DATA
+      Map<dynamic, dynamic> jsonify = jsonDecode(event.content!);
+      String decrypted = enc
+          .decrypt(Enc.Encrypted.fromBase64(jsonify['custom_fields'].toString()), iv: iv);
+      jsonify['custom_fields'] = decrypted;
+      return jsonify;
+    } catch (e) {
+      print("DECRYPT CLOUD DATA");
+      throw ReplicationException(e.toString());
+    }
+  }
+
+  Future<Map> encryptCloudData(toolbox_api.Node node) async {
+    print("ENCRYPT LOCAL NODE");
+    String fullPath = node.path;
+    String identifier = node.name;
+    toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria(
+      searchPath: ':Keys', value: fullPath);
+    List<toolbox_api.Node> keyList =
+      await storageController.search(criteria);
+    toolbox_api.Node? keys;
+    if (keyList.isNotEmpty) {
+      /// SHOULD RETURN ONLY ONE NODE
+      keys = keyList.first;
+    } else {
+      /// IF A PRE EXISTING KEY DOES NOT EXIST
+      /// CREATE NEW ONE AND A NODE
+      /// REPLICATE KEY TO CLOUD
+      toolbox_api.Node newKey =
+          toolbox_api.NodeImpl(':Keys:$identifier', _username);
+      newKey.addOrUpdateValue(
+          toolbox_api.NodeValueImpl('path', fullPath));
+      final nodeKey = Enc.Key.fromSecureRandom(32).base64.toString();
+      newKey.addOrUpdateValue(
+          toolbox_api.NodeValueImpl('key', 'aes-256-cfb:$nodeKey'));
+      toolbox_api.Visibility? checkerVisible =
+          toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerVisible != null) {
+        newKey.visibility = checkerVisible;
+      }
+      await storageController.add(newKey);
+        /// POST KEY EVENT
+        String keyUUID = await cloud.generateUUID();
+        Event keyEvent = Event(id_event: keyUUID, tlp: "AMBER");
+        keyEvent.owner = _username;
+        keyEvent.encoding = 'ascii';
+        keyEvent.content =
+            json.encode(await convertNodeToJsonString(newKey));
+        await cloud.createEvent(_username, keyEvent);
+        keys = newKey;
+    }
+    final hexEncodedKey = await keys
+        .getValue('key')
+        .then((value) => value!.getValue("en").toString());
+
+    /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
+    final onlyKey = hexEncodedKey.split(':');
+    final String decodedKey =
+        onlyKey[1]; //hex.decode(onlyKey[1]).toString();
+    print("KEY USED TO ENCRYPT NODE DATA: " + decodedKey);
+    final keyVal = Enc.Key.fromBase64(decodedKey);
+    final iv = Enc.IV.fromLength(16);
+    final enc =
+        Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+    Map convertedNode = await convertNodeToJsonString(node);
+    Enc.Encrypted encrypted = enc
+        .encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
+    convertedNode['custom_fields'] = encrypted.base64;
+    return convertedNode;
   }
 }

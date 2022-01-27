@@ -37,7 +37,7 @@ class Recommendation {
 
   String? get idrecommendation => id_recommendation;
 
-  set idrecommendation(String? value) => this.id_recommendation = value;
+  set idrecommendation(String? value) => id_recommendation = value;
 
   get getAction => Action;
 
