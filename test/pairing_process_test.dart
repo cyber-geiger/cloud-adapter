@@ -5,29 +5,26 @@ import 'package:test/test.dart';
 
 void pairingTests() async {
   test('SIMPLE MULTIPLE PAIRING', () async {
-    print('MULTIPLE PAIRING');
+    print('SIMPLE PAIRING');
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     // ignore: unused_local_variable
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
-    //toolbox_api.Node local = await storageController.get(':Local');
-    //String _localUser = await local
-      //  .getValue('currentUser')
-        //.then((value) => value!.getValue("en").toString());
+    toolbox_api.Node devices = await storageController.get(':Devices');
+    print("PRE DEVICES NODE");
+    print(devices);
+    print("PRE DEVICE CHILDREN NODE");
+    print(await devices.getChildren());
 
     /// NOW CREATE TWO RANDOM CLOUD USERS AND SET PAIR
     ReplicationController rep = ReplicationService();
-    //String u1 = '904fd6a7-ebde-4001-890a-075198d26f9f';
-    //String u2 = 'd51a9810-6e9b-4e51-8a9a-326c8b9502b0';
-    //rep.createCloudUser(u1);
-    //rep.createCloudUser(u2);
     await rep.initGeigerStorage();
     await rep.setPair('6f3ac19e-aa49-469d-bbf0-17956b652273',
         '6f3ac19e-aa49-469d-bbf0-17956b652273', 'both');
     toolbox_api.Node devices0 = await storageController.get(':Devices');
-    print("DEVICES NODE");
+    print("POST DEVICES NODE");
     print(devices0);
-    print("DEVICE CHILDREN NODE");
+    print("POST DEVICE CHILDREN NODE");
     print(await devices0.getChildren());
     await rep.endGeigerStorage();
   });

@@ -31,27 +31,14 @@ Future<GeigerApi> _initGeigerApi() async {
 }
 
 void replicationTests() async {
-  /* test('Storage Listener Test', () async {
-    ReplicationController rep = ReplicationService();
-    await rep.initGeigerStorage();
-    await rep.geigerReplicationListener(rep.deleteHandler, rep.createHandler, rep.updateHanlder, rep.renameHanlder);
-  });*/
-
   test('Full Replication', () async {
     print("FULL REPLICATION TEST");
-    toolbox_api.StorageController storageController = await initGeigerStorage();
-    toolbox_api.Node n =
-        toolbox_api.NodeImpl(':Enterprise:demo', 'Replication');
-    n.addOrUpdateValue(
-        toolbox_api.NodeValueImpl('Damo', 'checker'));
-    await storageController.addOrUpdate(n);
 
     /// INIT STORAGE
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
     await rep.geigerReplication(rep.deleteHandler, rep.createHandler,
         rep.renameHanlder, rep.updateHanlder);
-    await storageController.delete(':Local:Replication:LastReplication');
     await rep.endGeigerStorage();
   }, timeout: Timeout(Duration(minutes: 5)));
 }
