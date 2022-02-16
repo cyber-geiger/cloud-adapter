@@ -1,6 +1,5 @@
-import 'dart:convert';
 //import 'package:convert/convert.dart';
-import 'dart:io';
+
 //import 'dart:math';
 // ignore: library_prefixes
 //import 'package:cloud_replication_package/src/replication_exception.dart';
@@ -14,14 +13,12 @@ import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:cloud_replication_package/src/cloud_models/event.dart';
 //import 'package:cloud_replication_package/src/cloud_models/short_user.dart';
 import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
-import 'package:cloud_replication_package/src/service/cloud_exception.dart';
+import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 //import 'package:cloud_replication_package/src/cloud_models/user.dart';
-import 'package:cloud_replication_package/src/service/cloud_service.dart';
+import 'package:cloud_replication_package/src/service/cloud_service/cloud_service.dart';
 //import 'package:cloud_replication_package/src/service/event_listener.dart';
 //import 'package:cloud_replication_package/src/service/node_listener.dart';
 //import 'package:flutter/cupertino.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
 import 'package:intl/intl.dart';
 //import 'package:intl/intl.dart';
 import 'package:test/test.dart';
@@ -30,9 +27,11 @@ import 'package:test/test.dart';
 
 /// CLOUD SERVICE TESTS
 void cloudServiceTests() async {
-  final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
-
   /// TEST OF EACH METHOD
+  test('Authentication', () async {
+    var cloud = CloudService();
+    await cloud.createUser('authDemo');
+  });
   test('merge Test', () async {
     var cloud = CloudService();
     String idUser1 = "replicationTest";
@@ -41,22 +40,9 @@ void cloudServiceTests() async {
   });
   test('create Event', () async {
     var cloud = CloudService();
-    //TO GENERATE A NEW CLOUD UUID
-    Uri url = Uri.parse(uri + '/uuid');
-    HttpClient client = HttpClient()
-      ..badCertificateCallback =
-          ((X509Certificate cert, String host, int port) => true);
-    var ioClient = IOClient(client);
-    http.Response response =
-        await ioClient.get(url, headers: <String, String>{'accept': ''});
-    if (response.statusCode == 200) {
-      var uuid = jsonDecode(response.body);
-      Event event = Event(id_event: uuid, tlp: 'AMBER');
-      await cloud.createEvent('replicationDemo', event);
-    } else {
-      print("Something went wrong: $response");
-    }
-    expect(response.statusCode, returnsNormally);
+    var uuid = await cloud.generateUUID();
+    Event event = Event(id_event: uuid, tlp: 'AMBER');
+    await cloud.createEvent('replicationDemo', event);
   });
   test('update Event', () async {
     var cloud = CloudService();
@@ -74,7 +60,7 @@ void cloudServiceTests() async {
   });
   test('create User', () async {
     var cloud = CloudService();
-    expect(() async => await cloud.createUser('dummyCreate'), returnsNormally);
+    await cloud.createUser('dummyCreate');
   });
   test('get Users', () async {
     var cloud = CloudService();
@@ -110,7 +96,7 @@ void cloudServiceTests() async {
   });
   test('get Single User Event', () async {
     var cloud = CloudService();
-    String eventId = await generateUUID();
+    String eventId = await cloud.generateUUID();
     String userId = "replicationTest";
     bool exist = await cloud.userExists(userId);
     if (exist == false) {
@@ -127,7 +113,7 @@ void cloudServiceTests() async {
   });
   test('delete Event', () async {
     var cloud = CloudService();
-    String eventId = await generateUUID();
+    String eventId = await cloud.generateUUID();
     String userId = "replicationTest";
     bool exist = await cloud.userExists(userId);
     if (exist == false) {
@@ -159,21 +145,4 @@ void cloudServiceTests() async {
 void main() async {
   print("START CLOUD SERVICE TESTS");
   cloudServiceTests();
-}
-
-Future<String> generateUUID() async {
-  final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
-  Uri url = Uri.parse(uri + '/uuid');
-  HttpClient client = HttpClient()
-    ..badCertificateCallback =
-        ((X509Certificate cert, String host, int port) => true);
-  var ioClient = IOClient(client);
-  http.Response response =
-      await ioClient.get(url, headers: <String, String>{'accept': ''});
-  if (response.statusCode == 200) {
-    String uuid = jsonDecode(response.body).toString();
-    return uuid;
-  } else {
-    throw CloudException("FAILURE GETTING A UUID");
-  }
 }

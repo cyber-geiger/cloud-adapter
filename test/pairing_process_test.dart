@@ -28,6 +28,30 @@ void pairingTests() async {
     print(await devices0.getChildren());
     await rep.endGeigerStorage();
   });
+  test('SIMPLE MULTIPLE PAIRING', () async {
+    print('SIMPLE PAIRING');
+    GeigerApi localMaster =
+        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    // ignore: unused_local_variable
+    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.Node devices = await storageController.get(':Devices');
+    print("PRE DEVICES NODE");
+    print(devices);
+    print("PRE DEVICE CHILDREN NODE");
+    print(await devices.getChildren());
+
+    /// NOW CREATE TWO RANDOM CLOUD USERS AND SET PAIR
+    ReplicationController rep = ReplicationService();
+    await rep.initGeigerStorage();
+    await rep.setPair('6f3ac19e-aa49-469d-bbf0-17956b652273',
+        'b7c05573-60f7-4055-aa1c-e0ae63a544ed', 'both');
+    toolbox_api.Node devices0 = await storageController.get(':Devices');
+    print("POST DEVICES NODE");
+    print(devices0);
+    print("POST DEVICE CHILDREN NODE");
+    print(await devices0.getChildren());
+    await rep.endGeigerStorage();
+  });
   /*test('multiple pairing', () async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;

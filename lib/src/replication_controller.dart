@@ -66,10 +66,13 @@ abstract class ReplicationController {
   /// Updates Global Recommendations in a Cloud to Local way
   Future<void> updateRecommendations();
 
+  /// Updates Security Defenders Info
+  Future<void> updateSecurityDefendersInfo();
+
   /// CREATE HANDLERS
   /// 4 EVENT TYPES: create, update, rename, delete
   Future<void> createHandler(EventChange event);
   Future<void> updateHanlder(EventChange event);
   Future<void> renameHanlder(EventChange event);
-  void deleteHandler(EventChange event);
+  Future<void> deleteHandler(EventChange event);
 }

@@ -13,7 +13,7 @@ import 'dart:io';
 //import 'package:cloud_replication_package/src/cloud_models/event.dart';
 //import 'package:cloud_replication_package/src/cloud_models/short_user.dart';
 //import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
-import 'package:cloud_replication_package/src/service/cloud_exception.dart';
+import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 //import 'package:cloud_replication_package/src/cloud_models/user.dart';
 //import 'package:cloud_replication_package/src/service/cloud_service.dart';
 //import 'package:cloud_replication_package/src/service/event_listener.dart';

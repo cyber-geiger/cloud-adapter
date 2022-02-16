@@ -4,15 +4,17 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_replication_package/src/cloud_models/recommendation.dart';
+import 'package:cloud_replication_package/src/cloud_models/security_defender_user.dart';
+import 'package:cloud_replication_package/src/cloud_models/security_defenders_organization.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/locale.dart';
 
 import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import 'package:cloud_replication_package/src/replication_exception.dart';
-import 'package:cloud_replication_package/src/service/cloud_exception.dart';
+import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 import 'package:cloud_replication_package/src/cloud_models/threat_dict.dart';
 import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
-import 'package:cloud_replication_package/src/service/cloud_service.dart';
+import 'package:cloud_replication_package/src/service/cloud_service/cloud_service.dart';
 
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 import 'package:geiger_api/geiger_api.dart';
@@ -1703,6 +1705,69 @@ class ReplicationService implements ReplicationController {
     await localMaster.close();
   }
 
+  @override
+  Future<void> updateSecurityDefendersInfo() async {
+    //FIRST GET ALL SECURITY DEFENDERS ORGANIZATION
+    List<SecurityDefendersOrganization> orgs =
+        await cloud.getSecurityDefendersOrganizations();
+    for (var org in orgs) {
+      //CREATE A SEARCH CRITERIA TO SEE IF COUNTRY DOES EXIST
+      String? country = org.location;
+      String? id = org.idOrg;
+      String? name = org.name;
+
+      if (country != null && id != null) {
+        toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria(
+            searchPath: ':Global:location', value: country);
+        List<toolbox_api.Node> nodes = await storageController.search(criteria);
+        if (nodes.isEmpty) {
+          //NEED TO CREATE COUNTRY
+          toolbox_api.Node newCountry = toolbox_api.NodeImpl(
+              ':Global:location:' + country, 'cloud-adapter');
+          newCountry
+              .addOrUpdateValue(toolbox_api.NodeValueImpl('name', country));
+          await storageController.addOrUpdate(newCountry);
+        }
+      }
+      if (name != null) {
+        try {
+          // ignore: unused_local_variable
+          toolbox_api.Node o =
+              await getNode(':Global:securityDefendersOrganizations:' + id!);
+        } catch (e) {
+          //CREATE NODE
+          toolbox_api.Node newOrg = toolbox_api.NodeImpl(
+              ':Global:securityDefendersOrganizations:' + id!, 'cloud-adapter');
+          newOrg.addOrUpdateValue(toolbox_api.NodeValueImpl('name', name));
+          newOrg.addOrUpdateValue(
+              toolbox_api.NodeValueImpl('location', country!));
+          await storageController.addOrUpdate(newOrg);
+        }
+      }
+
+      //FOR EACH ORG - GET USERS
+      List<String> uuids =
+          await cloud.getSecurityDefendersOrganizationUsers(id!);
+      for (var uuid in uuids) {
+        SecurityDefenderUser user =
+            await cloud.getSecurityDefenderUser(id, uuid);
+        //ADD OR UPDATE
+        toolbox_api.Node n = toolbox_api.NodeImpl(
+            ':Global:securityDefenders:' + user.id_user!, 'cloud-adapter');
+        n.addOrUpdateValue(toolbox_api.NodeValueImpl('name', user.name!));
+        n.addOrUpdateValue(
+            toolbox_api.NodeValueImpl('firstname', user.firstname!));
+        n.addOrUpdateValue(
+            toolbox_api.NodeValueImpl('affiliation', user.affiliation!));
+        n.addOrUpdateValue(toolbox_api.NodeValueImpl('phone', user.phone!));
+        n.addOrUpdateValue(toolbox_api.NodeValueImpl('email', user.email!));
+        n.addOrUpdateValue(toolbox_api.NodeValueImpl('title', user.title!));
+        n.addOrUpdateValue(toolbox_api.NodeValueImpl('picture', ''));
+        await storageController.addOrUpdate(n);
+      }
+    }
+  }
+
   List<Map<dynamic, dynamic>> cloudNodeList = [];
   List<String> cloudNodePath = [];
   List<Event> cloudEvents = [];
@@ -1783,7 +1848,7 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
-  void deleteHandler(EventChange event) async {
+  Future<void> deleteHandler(EventChange event) async {
     String eType = event.type.toValueString();
     toolbox_api.Node? oldNode = event.oldNode;
     print("STORAGE LISTENER EVENT TYPE: $eType");
@@ -1981,5 +2046,56 @@ class ReplicationService implements ReplicationController {
         enc.encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
     convertedNode['custom_fields'] = encrypted.base64;
     return convertedNode;
+  }
+
+  Future<Map> encryptNodeToShare(toolbox_api.Node node, String keyPath) async {
+    late Map convertedNode;
+    //String fullPath = node.path;
+    //String identifier = node.name;
+    try {
+      toolbox_api.Node keyNode = await getNode(keyPath);
+      final hexEncodedKey = await keyNode
+          .getValue('key')
+          .then((value) => value!.getValue("en").toString());
+      final onlyKey = hexEncodedKey.split(':');
+      final String decodedKey = onlyKey[1];
+      print("KEY USED TO ENCRYPT NODE DATA: " + decodedKey);
+      final keyVal = Enc.Key.fromBase64(decodedKey);
+      final iv = Enc.IV.fromLength(16);
+      final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+      convertedNode = await convertNodeToJsonString(node);
+      Enc.Encrypted encrypted =
+          enc.encrypt(json.encode(convertedNode['custom_fields']), iv: iv);
+      convertedNode['custom_fields'] = encrypted.base64;
+      return convertedNode;
+    } catch (e) {
+      print("DECRYPT CLOUD DATA");
+      throw ReplicationException(e.toString());
+    }
+  }
+
+  Future<Map> decryptSharedNode(Event event, String keyPath) async {
+    try {
+      toolbox_api.Node keyNode = await getNode(keyPath);
+      final hexEncodedKey = await keyNode
+          .getValue('key')
+          .then((value) => value!.getValue("en").toString());
+      final onlyKey = hexEncodedKey.split(':');
+      final String decodedKey = onlyKey[1];
+      print("KEY USED TO ENCRYPT NODE DATA: " + decodedKey);
+      final keyVal = Enc.Key.fromBase64(decodedKey);
+      final iv = Enc.IV.fromLength(16);
+      final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+      //DECRYPT DATA
+      Map<dynamic, dynamic> jsonify = jsonDecode(event.content!);
+      String decrypted = enc.decrypt(
+          Enc.Encrypted.fromBase64(jsonify['custom_fields'].toString()),
+          iv: iv);
+      jsonify['custom_fields'] = decrypted;
+      return jsonify;
+    } catch (e) {
+      print("DECRYPT CLOUD DATA");
+      throw ReplicationException(e.toString());
+    }
   }
 }
