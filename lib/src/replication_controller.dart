@@ -1,3 +1,4 @@
+import 'package:cloud_replication_package/src/service/node_listener.dart';
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 
 abstract class ReplicationController {
@@ -14,7 +15,11 @@ abstract class ReplicationController {
   Future<bool> checkReplication();
 
   /// Achieves full or partial replication
-  Future<void> geigerReplication();
+  Future<void> geigerReplication(
+      deleteHandler, createHandler, updateHandler, renameHandler);
+
+  Future<void> geigerReplicationListener(
+      deleteHandler, createHandler, updateHandler, renameHandler);
 
   /// Check if two users have an agreement
   Future<bool> checkPairing(String userId1, String userId2);
@@ -50,6 +55,24 @@ abstract class ReplicationController {
   /// Flushes memory, ends storage...
   Future<void> endGeigerStorage();
 
+  /// Adds first approach
+  /// if settingsValue = true -> consent accepted
+  /// if settingsValue = true -> consent rejected
+  Future<void> addSettingsConsent(String username, bool settingsValue);
+
   /// Checks the consent of a user & if needed, asks for it
   Future<bool> checkConsent(toolbox_api.Node node, String username);
+
+  /// Updates Global Recommendations in a Cloud to Local way
+  Future<void> updateRecommendations();
+
+  /// Updates Security Defenders Info
+  Future<void> updateSecurityDefendersInfo();
+
+  /// CREATE HANDLERS
+  /// 4 EVENT TYPES: create, update, rename, delete
+  Future<void> createHandler(EventChange event);
+  Future<void> updateHanlder(EventChange event);
+  Future<void> renameHanlder(EventChange event);
+  Future<void> deleteHandler(EventChange event);
 }
