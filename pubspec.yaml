@@ -37,14 +37,14 @@ dev_dependencies:
 flutter:
 
   # To add assets to your package, add an assets section, like this:
-  assets:
+  #assets:
   #  - packages/cloud_replication_package/
   #  - packages/cloud_replication_package/src/
   #  - packages/cloud_replication_package/src/service/
   #  - packages/cloud_replication_package/src/service/cloud_service/
   #  - packages/cloud_replication_package/src/service/cloud_service/assets/
   #  - packages/cloud_replication_package/src/service/cloud_service/assets/resources/
-    - assets/resources/adapter.p12
+  #- assets/resources/adapter.p12
   #   - images/a_dot_ham.jpeg
   #
   # For details regarding assets in packages, see
