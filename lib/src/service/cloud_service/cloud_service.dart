@@ -21,7 +21,7 @@ import '../../cloud_models/security_defenders_organization.dart';
 class CloudService {
   final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
 
-  File asset = File('assets/resources/adapter.p12');
+  //File asset = File('assets/resources/adapter.p12');
   String pass = 'RYESpxkaet6Bn5KMsV4w';
 
   CloudService() {

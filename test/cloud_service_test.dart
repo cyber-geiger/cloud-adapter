@@ -30,7 +30,7 @@ void cloudServiceTests() async {
   /// TEST OF EACH METHOD
   test('Authentication', () async {
     var cloud = CloudService();
-    await cloud.createUser('authDemo');
+    await cloud.createUser('letsseeifcan');
   });
   test('merge Test', () async {
     var cloud = CloudService();
