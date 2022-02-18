@@ -2,17 +2,18 @@ import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 
 class NodeListener implements toolbox_api.StorageListener {
   List<EventChange> events = [];
-  Map<EventChange, Function> eventHandler = <EventChange, Function>{};
+  Map<toolbox_api.EventType, Function> eventHandler =
+      <toolbox_api.EventType, Function>{};
   int numberReceivedEvents = 0;
   int numberHandledEvents = 0;
 
-  void addEventHandler(EventChange event, Function handler) {
+  void addEventHandler(toolbox_api.EventType eventType, Function handler) {
     try {
       print("ADD HANDLER");
       //eventHandler.putIfAbsent(event, () => handler);
-      eventHandler[event] = handler;
+      eventHandler[eventType] = handler;
     } catch (e) {
-      print("ADD MESSAGE");
+      print("Failed to add handler for event type ${eventType.toString()}");
       print(e);
     }
   }
@@ -24,7 +25,7 @@ class NodeListener implements toolbox_api.StorageListener {
     print(
         'localStorageEventListener received a NEW EVENT ==> ${e.type}\n OLD NODE ==> ${e.oldNode} \n NEW NODE ==> ${e.newNode}');
     events.add(e);
-    Function? handler = eventHandler[e];
+    Function? handler = eventHandler[event];
     if (handler != null) {
       numberHandledEvents++;
       handler(e);
