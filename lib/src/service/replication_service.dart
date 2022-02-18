@@ -861,8 +861,14 @@ class ReplicationService implements ReplicationController {
   Future<GeigerApi> _initGeigerApi() async {
     print("INIT GEIGER API");
     try {
+      // LN: Due to the bug in the GeigerAPI, the internal plugin cannot see the Storage Event
+      // We will try to initialize replication as an external plugin
+      // When the bug has been fixed, we should reverse back to be an internal plugin
       localMaster = (await getGeigerApi(
           "cloud_adapter", GeigerApi.masterId, Declaration.doShareData))!;
+      // localMaster = (await getGeigerApi(
+      //     "cloud_adapter", 'atos_replication_id', Declaration.doShareData))!;
+      print('Cloud Adapter Plugin:');
       print(localMaster);
       return localMaster;
     } catch (e, s) {
@@ -1798,22 +1804,22 @@ class ReplicationService implements ReplicationController {
     toolbox_api.SearchCriteria sc = toolbox_api.SearchCriteria();
     NodeListener stListener = NodeListener();
 
-    EventChange eventDelete =
-        EventChange(toolbox_api.EventType.delete, null, null);
-    print(eventDelete);
-    stListener.addEventHandler(eventDelete, deleteHandler);
+    // EventChange eventDelete =
+    //     EventChange(toolbox_api.EventType.delete, null, null);
+    // print(eventDelete);
+    stListener.addEventHandler(toolbox_api.EventType.delete, deleteHandler);
     //await storageController.registerChangeListener(stListener, sc);
-    EventChange eventCreate =
-        EventChange(toolbox_api.EventType.create, null, null);
-    stListener.addEventHandler(eventCreate, createHandler!);
+    // EventChange eventCreate =
+    //     EventChange(toolbox_api.EventType.create, null, null);
+    stListener.addEventHandler(toolbox_api.EventType.create, createHandler!);
     //await storageController.registerChangeListener(stListener, sc);
-    EventChange eventUpdate =
-        EventChange(toolbox_api.EventType.update, null, null);
-    stListener.addEventHandler(eventUpdate, updateHandler!);
+    // EventChange eventUpdate =
+    //     EventChange(toolbox_api.EventType.update, null, null);
+    stListener.addEventHandler(toolbox_api.EventType.update, updateHandler!);
     //await storageController.registerChangeListener(stListener, sc);
-    EventChange eventRename =
-        EventChange(toolbox_api.EventType.rename, null, null);
-    stListener.addEventHandler(eventRename, renameHandler!);
+    // EventChange eventRename =
+    //     EventChange(toolbox_api.EventType.rename, null, null);
+    stListener.addEventHandler(toolbox_api.EventType.rename, renameHandler!);
     await storageController.registerChangeListener(stListener, sc);
   }
 
