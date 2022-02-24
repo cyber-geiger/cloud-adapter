@@ -239,6 +239,14 @@ class ReplicationService implements ReplicationController {
       } catch (e) {
         print(e);
         print('FAILURE GETTING KEYS FOR NODE: $waitingId');
+        try {
+          toolbox_api.Node node =
+            convertJsonStringToNode(waiting.content!);
+          await updateLocalNodeWithCloudNode(node, _username);
+        } catch (e) {
+          print("GET SHARED NODES FAILURE");
+          print(e.toString());
+        }
       }
     }
 
@@ -719,10 +727,13 @@ class ReplicationService implements ReplicationController {
             /// get user nodes
             List<String> allEvents = await cloud.getUserEvents(receiverUserId);
             List<Event> waitingEvents = [];
+            
             print("GET USER SHARED EVENTS");
+            print(allEvents);
             for (var event in allEvents) {
               Event newEvent =
                   await cloud.getSingleUserEvent(receiverUserId, event);
+              print(newEvent.toJson());
               var owner = newEvent.getOwner;
               String id = newEvent.id_event;
               var type = newEvent.type;
@@ -739,10 +750,14 @@ class ReplicationService implements ReplicationController {
                     String newPath = node.path
                         .replaceAll(node.name, pluginAPI + ":" + node.name);
                     await checkParents(newPath);
-                    await storageController.rename(
+                    try {
+                      await storageController.rename(
                         node.path,
-                        node.path.replaceAll(
-                            node.name, pluginAPI + ":" + node.name));
+                        node.path
+                            .replaceAll(node.name, pluginAPI + ":" + node.name));
+                    } catch (e) {
+                      print("NODE ALREADY EXISTS - ONLY UPDATE");
+                    }
                     await updateLocalNodeWithCloudNode(node, senderUserId);
                   }
                   if (type.toLowerCase() == "user_object") {
@@ -754,17 +769,24 @@ class ReplicationService implements ReplicationController {
                       ///AND REPLICATE
                       Map<dynamic, dynamic> jsonify =
                           await decryptCloudData(newEvent);
+                      print("DECRYPTS SHARED NODE");
                       newEvent.setContent = jsonEncode(jsonify);
                       toolbox_api.Node node =
                           convertJsonStringToNode(newEvent.content!);
-
+                      print("SUCCESS IN CONVERT");
                       String newPath = node.path
                           .replaceAll(node.name, pluginAPI + ":" + node.name);
+                      print(newPath);
                       await checkParents(newPath);
-                      await storageController.rename(
+                      print("NEW PATH AND PARENTS SET");
+                      try {
+                        await storageController.rename(
                           node.path,
-                          node.path.replaceAll(
-                              node.name, pluginAPI + ":" + node.name));
+                          node.path
+                              .replaceAll(node.name, pluginAPI + ":" + node.name));
+                      } catch (e) {
+                        print("NODE ALREADY EXISTS - ONLY UPDATE");
+                      }
                       await updateLocalNodeWithCloudNode(node, senderUserId);
                     } catch (e) {
                       /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
@@ -790,13 +812,37 @@ class ReplicationService implements ReplicationController {
                 String newPath = node.path
                     .replaceAll(node.name, pluginAPI + ":" + node.name);
                 await checkParents(newPath);
-                await storageController.rename(
+                try {
+                  await storageController.rename(
                     node.path,
                     node.path
                         .replaceAll(node.name, pluginAPI + ":" + node.name));
+                } catch (e) {
+                  print("NODE ALREADY EXISTS - ONLY UPDATE");
+                }
                 await updateLocalNodeWithCloudNode(node, senderUserId);
               } catch (e) {
-                print('FAILURE GETTING KEYS FOR NODE: $waitingId');
+                print('WAITING EVENTS - FAILURE GETTING KEYS FOR NODE: $waitingId');
+                try {
+                  toolbox_api.Node node =
+                    convertJsonStringToNode(waiting.content!);
+
+                  String newPath = node.path
+                      .replaceAll(node.name, pluginAPI + ":" + node.name);
+                  await checkParents(newPath);
+                  try {
+                    await storageController.rename(
+                      node.path,
+                      node.path
+                          .replaceAll(node.name, pluginAPI + ":" + node.name));
+                  } catch (e) {
+                    print("NODE ALREADY EXISTS - ONLY UPDATE");
+                  }
+                  await updateLocalNodeWithCloudNode(node, senderUserId);
+                } catch (e) {
+                  print("GET SHARED NODES FAILURE");
+                  print(e.toString());
+                }
               }
             }
           }
@@ -913,7 +959,7 @@ class ReplicationService implements ReplicationController {
 
   Future<void> updateLocalNodeWithCloudNode(
       toolbox_api.Node eventNode, String username) async {
-    //print('CHECK NODES');
+    print('CHECK NODES');
     //toolbox_api.Node _toCheck = convertJsonStringToNode(event.content!);
     String _nodePath = eventNode.path.toString();
     try {
@@ -930,7 +976,7 @@ class ReplicationService implements ReplicationController {
         await storageController.update(eventNode);
       }
     } catch (e) {
-      //print('NODE NOT FOUND - CREATE ONE');
+      print('NODE NOT FOUND - CREATE ONE');
       eventNode.owner = username;
       await storageController.add(eventNode);
     }
@@ -1670,14 +1716,12 @@ class ReplicationService implements ReplicationController {
   /// CHECKS IF THE PARENT NODE IS CREATED
   /// IF NOT CREATES PARENT NODE IN A RECURSIVE WAY
   Future<bool> checkParents(String path) async {
+    print("CHECK PARENTS NODE");
     bool exist = false;
     //PATH MUST BE SPLITTED BY ':'
     List<String> splittedPath = path.split(':');
     String createPath = '';
-    print(splittedPath);
     for (var p in splittedPath) {
-      print(p);
-
       /// GET NODE - IF EXISTS - GO TO NEXT
       /// ELSE - CREATE NODE
       if (p.isNotEmpty) {

@@ -1,4 +1,6 @@
 import 'package:cloud_replication_package/cloud_replication_package.dart';
+import 'package:cloud_replication_package/src/cloud_models/event.dart';
+import 'package:cloud_replication_package/src/service/cloud_service/cloud_service.dart';
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 import 'package:geiger_api/geiger_api.dart';
 import 'package:test/test.dart';
@@ -10,17 +12,29 @@ void pairingTests() async {
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     // ignore: unused_local_variable
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.Node local = await storageController.get(':Local');
+    print(local);
+    print(await local.getChildren());
     toolbox_api.Node devices = await storageController.get(':Devices');
     print("PRE DEVICES NODE");
     print(devices);
     print("PRE DEVICE CHILDREN NODE");
     print(await devices.getChildren());
 
+    /// GET ALL EVENTS FROM A USER AND DETAILS
+   /* print("****************************************************************************");
+    var cloud = CloudService();
+    List<String> response = await cloud.getUserEvents('b9be2ca7-2318-482f-997e-bdcd62981519');
+    for (var s in response) {
+      Event checker = await cloud.getSingleUserEvent('b9be2ca7-2318-482f-997e-bdcd62981519', s);
+      print(checker.toJson());
+    }*/
+    ///print("******************************* ALL USER EVENTS ****************************");
     /// NOW CREATE TWO RANDOM CLOUD USERS AND SET PAIR
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
-    await rep.setPair('6f3ac19e-aa49-469d-bbf0-17956b652273',
-        '6f3ac19e-aa49-469d-bbf0-17956b652273', 'both');
+    await rep.setPair('4ed8fa47-857a-4b7a-a2b8-328107953668',
+        '3ceacb5d-e433-41a8-9b1b-a3079a988a2e', 'both');
     toolbox_api.Node devices0 = await storageController.get(':Devices');
     print("POST DEVICES NODE");
     print(devices0);
@@ -28,7 +42,7 @@ void pairingTests() async {
     print(await devices0.getChildren());
     await rep.endGeigerStorage();
   });
-  test('SIMPLE MULTIPLE PAIRING', () async {
+ /* test('SIMPLE MULTIPLE PAIRING', () async {
     print('SIMPLE PAIRING');
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
@@ -51,7 +65,7 @@ void pairingTests() async {
     print("POST DEVICE CHILDREN NODE");
     print(await devices0.getChildren());
     await rep.endGeigerStorage();
-  });
+  });*/
   /*test('multiple pairing', () async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;

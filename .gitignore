@@ -2,6 +2,11 @@
 sqlite3.def
 sqlite3.dll
 
+# New Files
+GeigerApi.__MASTERPLUGIN__.state
+database
+test.tst
+
 # Miscellaneous
 *.class
 *.log
