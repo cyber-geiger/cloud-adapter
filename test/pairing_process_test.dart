@@ -1,6 +1,4 @@
 import 'package:cloud_replication_package/cloud_replication_package.dart';
-import 'package:cloud_replication_package/src/cloud_models/event.dart';
-import 'package:cloud_replication_package/src/service/cloud_service/cloud_service.dart';
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 import 'package:geiger_api/geiger_api.dart';
 import 'package:test/test.dart';
@@ -22,7 +20,7 @@ void pairingTests() async {
     print(await devices.getChildren());
 
     /// GET ALL EVENTS FROM A USER AND DETAILS
-   /* print("****************************************************************************");
+    /* print("****************************************************************************");
     var cloud = CloudService();
     List<String> response = await cloud.getUserEvents('b9be2ca7-2318-482f-997e-bdcd62981519');
     for (var s in response) {
@@ -42,7 +40,7 @@ void pairingTests() async {
     print(await devices0.getChildren());
     await rep.endGeigerStorage();
   });
- /* test('SIMPLE MULTIPLE PAIRING', () async {
+  /* test('SIMPLE MULTIPLE PAIRING', () async {
     print('SIMPLE PAIRING');
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
