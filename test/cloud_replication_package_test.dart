@@ -3,16 +3,16 @@
 
 //import 'package:cloud_replication_package/cloud_replication_package.dart';
 //import 'package:cloud_replication_package/src/cloud_models/event.dart';
-import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
+// import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
 //import 'package:cloud_replication_package/src/cloud_models/user.dart';
-import 'package:cloud_replication_package/src/service/cloud_service.dart';
+// import 'package:cloud_replication_package/src/service/cloud_service.dart';
 
 //import 'package:http/http.dart' as http;
 //import 'package:http/io_client.dart';
 //import 'package:intl/intl.dart';
 import 'package:test/test.dart';
 
-void replicationTests() async {
+// void replicationTests() async {
   //late toolbox_api.StorageController storageController;
   //final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
 
@@ -116,14 +116,14 @@ void replicationTests() async {
     //await cloud.deleteEvent('hackathon', eventId);
     await cloud.deleteEvent('hackathon', eventId);
   });*/
-  test('get Threat Weights', () async {
-    var cloud = CloudService();
-    List<ThreatWeights> response = await cloud.getThreatWeights();
-    print(response.length);
-  });
-}
+//   test('get Threat Weights', () async {
+//     var cloud = CloudService();
+//     List<ThreatWeights> response = await cloud.getThreatWeights();
+//     print(response.length);
+//   });
+// }
 
 void main() {
   print("START MAIN");
-  replicationTests();
+  // replicationTests();
 }
