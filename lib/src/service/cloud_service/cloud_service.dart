@@ -41,11 +41,11 @@ class CloudService {
       print(url);
       ////SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -79,11 +79,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -115,11 +115,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -154,11 +154,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -194,11 +194,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -244,12 +244,12 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //password: pass);
       print(fromTimestamp);
-      HttpClient client = HttpClient()//context: context)
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -284,11 +284,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -324,11 +324,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -360,11 +360,11 @@ class CloudService {
       Uri url = Uri.parse(uri + userUri);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -399,11 +399,11 @@ class CloudService {
       Uri url = Uri.parse(uri + userUri);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -455,11 +455,11 @@ class CloudService {
       }
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -494,11 +494,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -540,13 +540,13 @@ class CloudService {
       }
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //password: pass);
       Uri url = Uri.parse(uri + userUri);
       print(url.toString());
-      HttpClient client = HttpClient()//context: context)
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -577,12 +577,12 @@ class CloudService {
       Uri url = Uri.parse(uri + mergedUri);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //password: pass);
       print(url);
-      HttpClient client = HttpClient()//context: context)
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -625,11 +625,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -665,11 +665,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -703,11 +703,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -748,11 +748,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -792,11 +792,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -834,11 +834,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -882,11 +882,11 @@ class CloudService {
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
       //context.useCertificateChainBytes(
-          //asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-          //password: pass);
-      HttpClient client = HttpClient()//context: context)
+      //password: pass);
+      HttpClient client = HttpClient() //context: context)
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true);
       var ioClient = IOClient(client);
@@ -925,11 +925,11 @@ class CloudService {
     Uri url = Uri.parse(uri + '/uuid');
     //SecurityContext context = //SecurityContext.defaultContext;
     //context.useCertificateChainBytes(
-        //asset.readAsBytesSync().buffer.asUint8List(),
-        //password: pass);
+    //asset.readAsBytesSync().buffer.asUint8List(),
+    //password: pass);
     //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
-        //password: pass);
-    HttpClient client = HttpClient()//context: context)
+    //password: pass);
+    HttpClient client = HttpClient() //context: context)
       ..badCertificateCallback =
           ((X509Certificate cert, String host, int port) => true);
     var ioClient = IOClient(client);
