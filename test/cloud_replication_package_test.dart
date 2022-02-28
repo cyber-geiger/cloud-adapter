@@ -124,6 +124,10 @@ import 'package:test/test.dart';
 // }
 
 void main() {
-  print("START MAIN");
-  // replicationTests();
+  test('Stupid Test', () {
+    //RUN PAIRING TEST BEFORE
+    // expect(() async => await rep.unpair('replicationUser1', 'replicationUser2'),
+        // returnsNormally);
+    expect(true, true);
+});
 }
