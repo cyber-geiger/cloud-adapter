@@ -29,6 +29,8 @@ jobs:
     # Checkout gallery code and get packages.
     - name: -> Checkout gallery code
       uses: actions/checkout@v2
+    - name: -> Clean repo
+      run: flutter clean
     - name: -> Get packages
       run: flutter pub get
 
@@ -53,12 +55,12 @@ jobs:
     #   run: dart pub publish -f
 
     # Trigger other to test the application
-    # - name: -> Trigger the external_workflows on other repositories
-    #   run: |
-    #       curl \
-    #       -X POST \
-    #       -u '${{secrets.GEIGER_USERNAME}}:${{secrets.APPLICATION_ACCESS_TOKEN}}' \
-    #       -H "Accept: application/vnd.github.v3+json" \
-    #       https://api.github.com/repos/cyber-geiger/toolbox-ui-flutter/actions/workflows/external_workflow.yaml/dispatches \
-    #       -d '{"ref":"refs/heads/development"}'
+    - name: -> Trigger the external_workflows on toolbox-ui-flutter
+      run: |
+          curl \
+          -X POST \
+          -u '${{secrets.GEIGER_USERNAME}}:${{secrets.APPLICATION_ACCESS_TOKEN}}' \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/cyber-geiger/toolbox-ui-flutter/actions/workflows/external_workflow.yaml/dispatches \
+          -d '{"ref":"refs/heads/development"}'
 
