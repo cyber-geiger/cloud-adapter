@@ -240,8 +240,7 @@ class ReplicationService implements ReplicationController {
         print(e);
         print('FAILURE GETTING KEYS FOR NODE: $waitingId');
         try {
-          toolbox_api.Node node =
-            convertJsonStringToNode(waiting.content!);
+          toolbox_api.Node node = convertJsonStringToNode(waiting.content!);
           await updateLocalNodeWithCloudNode(node, _username);
         } catch (e) {
           print("GET SHARED NODES FAILURE");
@@ -718,7 +717,7 @@ class ReplicationService implements ReplicationController {
             /// get user nodes
             List<String> allEvents = await cloud.getUserEvents(receiverUserId);
             List<Event> waitingEvents = [];
-            
+
             print("GET USER SHARED EVENTS");
             print(allEvents);
             for (var event in allEvents) {
@@ -743,9 +742,9 @@ class ReplicationService implements ReplicationController {
                     await checkParents(newPath);
                     try {
                       await storageController.rename(
-                        node.path,
-                        node.path
-                            .replaceAll(node.name, pluginAPI + ":" + node.name));
+                          node.path,
+                          node.path.replaceAll(
+                              node.name, pluginAPI + ":" + node.name));
                     } catch (e) {
                       print("NODE ALREADY EXISTS - ONLY UPDATE");
                     }
@@ -772,9 +771,9 @@ class ReplicationService implements ReplicationController {
                       print("NEW PATH AND PARENTS SET");
                       try {
                         await storageController.rename(
-                          node.path,
-                          node.path
-                              .replaceAll(node.name, pluginAPI + ":" + node.name));
+                            node.path,
+                            node.path.replaceAll(
+                                node.name, pluginAPI + ":" + node.name));
                       } catch (e) {
                         print("NODE ALREADY EXISTS - ONLY UPDATE");
                       }
@@ -805,27 +804,28 @@ class ReplicationService implements ReplicationController {
                 await checkParents(newPath);
                 try {
                   await storageController.rename(
-                    node.path,
-                    node.path
-                        .replaceAll(node.name, pluginAPI + ":" + node.name));
+                      node.path,
+                      node.path
+                          .replaceAll(node.name, pluginAPI + ":" + node.name));
                 } catch (e) {
                   print("NODE ALREADY EXISTS - ONLY UPDATE");
                 }
                 await updateLocalNodeWithCloudNode(node, senderUserId);
               } catch (e) {
-                print('WAITING EVENTS - FAILURE GETTING KEYS FOR NODE: $waitingId');
+                print(
+                    'WAITING EVENTS - FAILURE GETTING KEYS FOR NODE: $waitingId');
                 try {
                   toolbox_api.Node node =
-                    convertJsonStringToNode(waiting.content!);
+                      convertJsonStringToNode(waiting.content!);
 
                   String newPath = node.path
                       .replaceAll(node.name, pluginAPI + ":" + node.name);
                   await checkParents(newPath);
                   try {
                     await storageController.rename(
-                      node.path,
-                      node.path
-                          .replaceAll(node.name, pluginAPI + ":" + node.name));
+                        node.path,
+                        node.path.replaceAll(
+                            node.name, pluginAPI + ":" + node.name));
                   } catch (e) {
                     print("NODE ALREADY EXISTS - ONLY UPDATE");
                   }
