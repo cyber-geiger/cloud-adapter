@@ -250,16 +250,7 @@ class ReplicationService implements ReplicationController {
       }
     }
 
-    ///FETCH ALL TLP WHITE EVENTS - FREELY SHARED
-    ///STORE THEM IN :Global:type:UUID
-    await updateTLPWhiteEvents(_fullRep, _fromDate);
-
-    /// GET THREAT WEIGHTS
-    /// STORE :Global:ThreatWeight:UUID
-    await updateThreatWeights();
-    //print('FIRST DIAGRAM COMPLETED');
-
-    await updateRecommendations();
+    await updateGlobalData();
   }
 
   Future<void> localToCloudReplication(String _username, DateTime _actual,
@@ -1061,16 +1052,18 @@ class ReplicationService implements ReplicationController {
     }
   }
 
-  /// STORE :Global:ThreatWeight:UUID
+  /// STORE :Global:threats
+  @override
   Future<void> updateThreatWeights() async {
-    print('UPDATE THREAT WEIGHTS');
+    print('[UPDATE THREAT WEIGHTS]');
+    print("CHECK PARENT NODE: :GLOBAL:THREATS");
     try {
       // ignore: unused_local_variable
-      toolbox_api.Node typeChecker = await getNode(':Global:ThreatWeight');
+      toolbox_api.Node typeChecker = await getNode(':Global:threats');
     } catch (e) {
       /// CREATE NODE FOR TYPE of TLP WHITE EVENT
       toolbox_api.Node typeChecker =
-          toolbox_api.NodeImpl(':Global:ThreatWeight', 'ULEI');
+          toolbox_api.NodeImpl(':Global:threats', 'ULEI');
       toolbox_api.Visibility? checkerVisible =
           toolbox_api.VisibilityExtension.valueOf("white");
       if (checkerVisible != null) {
@@ -1078,19 +1071,93 @@ class ReplicationService implements ReplicationController {
       }
       await storageController.add(typeChecker);
     }
+    print("CHECK PARENT NODE: :GLOBAL:PROFILES");
+    try {
+      // ignore: unused_local_variable
+      toolbox_api.Node profileChecker = await getNode(':Global:profiles');
+    } catch (e) {
+      /// CREATE NODE FOR TYPE of TLP WHITE EVENT
+      toolbox_api.Node profileChecker =
+          toolbox_api.NodeImpl(':Global:profiles', 'ULEI');
+      toolbox_api.Visibility? checkerVisible =
+          toolbox_api.VisibilityExtension.valueOf("white");
+      if (checkerVisible != null) {
+        profileChecker.visibility = checkerVisible;
+      }
+      await storageController.add(profileChecker);
+    }
+
+    print("CHECK PARENT NODES SUBNODE - DIGITALLY DEPENDENT, DIGITALLY BASED, DIGITAL ENABLER");
+    List<String> profiles = ["digitally dependent", "digitally based", "digitally enabler"];
+    List<toolbox_api.Node> profileNodes = [];
+    for (var profile in profiles) {
+      /// search criteria for each profile
+      toolbox_api.SearchCriteria profileCriteria =
+
+              toolbox_api.SearchCriteria(searchPath: ':Global:profiles:', key: 'name', value: profile);
+      List<toolbox_api.Node> scProf =
+              await storageController.search(profileCriteria);
+      if (scProf.isNotEmpty) {
+        print("SEARCH CRITERIA FOUND");
+        profileNodes.add(scProf[0]);
+      } else {
+        /// CREATE NEW 
+        print("NEED TO CREATE NEW PROFILE SUBNODE");
+        toolbox_api.Node newProfile = toolbox_api.NodeImpl(':Global:profiles:$profile', 'cloud_adapter');
+        newProfile.addOrUpdateValue(toolbox_api.NodeValueImpl('name', profile));
+        await storageController.add(newProfile);
+        profileNodes.add(newProfile);
+      }       
+    }
     List<ThreatWeights> weights = await cloud.getThreatWeights();
     for (var weight in weights) {
       String? uuid = weight.idThreatweights;
       ThreatDict? data = weight.threatDict;
-      if (uuid != null && data != null) {
+      if (data != null) {
+        Map<String, dynamic> mapper = data.toJson();
+        mapper.forEach((key, value) async {
+          print("SEARCH CRITERIA");
+          toolbox_api.SearchCriteria criteria =
+              toolbox_api.SearchCriteria(searchPath: ':Global:threats', key: 'GEIGER_threat', value: key.replaceAll(" ", "")[40]);
+          List<toolbox_api.Node> scNode =
+              await storageController.search(criteria);
+          List<double> val = value;
+          String path;
+          if (scNode.isNotEmpty) {
+            toolbox_api.Node newThreat = scNode[0];
+            print(newThreat);
+            path = newThreat.path;
+          } else {
+            /// CREATE NEW  
+            String id = key.replaceAll(" ", "")[40];
+            toolbox_api.Node newThreat = toolbox_api.NodeImpl(':Global:threats:$id', 'cloud_adapter');
+            newThreat.addOrUpdateValue(toolbox_api.NodeValueImpl('GEIGER_threat', key));
+            newThreat.addOrUpdateValue(toolbox_api.NodeValueImpl('name', key));
+            await storageController.addOrUpdate(newThreat);
+            /// FOR EACH VALUE
+            path = newThreat.name;
+            print(path);
+          }
+          int i = 0;
+          for (var v in val) {
+            profileNodes[i].addOrUpdateValue(toolbox_api.NodeValueImpl(path, v.toString()));
+            i++;
+          }
+        });
+      }
+    }
+    /// store updated nodes in toolbox
+    for (var node in profileNodes) {
+      await storageController.addOrUpdate(node);
+    }
+      /*if (uuid != null && data != null) {
         try {
+          // FIND NODE BY SEARCH CRITERIA
+          // ONE FOR EACH KEY
+          
           toolbox_api.Node checker =
-              await getNode(':Global:ThreatWeight:$uuid');
-          Map<String, dynamic> mapper = data.toJson();
-          mapper.forEach((key, value) {
-            checker.addOrUpdateValue(
-                toolbox_api.NodeValueImpl(key, value.toString()));
-          });
+              await getNode(':Global:threats:$uuid');
+          
           // add all the fields in a single json string
           //checker.addOrUpdateValue(
           //  toolbox_api.NodeValueImpl('threatJson', jsonEncode(data)));
@@ -1111,10 +1178,10 @@ class ReplicationService implements ReplicationController {
           newThreatNode.addOrUpdateValue(
               toolbox_api.NodeValueImpl('threatJson', jsonEncode(data)));
           await storageController.add(newThreatNode);
-        }
-      }
+        }*/
+      //}
     }
-  }
+  
 
   @override
   Future<void> updateRecommendations() async {
@@ -1148,7 +1215,7 @@ class ReplicationService implements ReplicationController {
           await storageController.update(checker);
         } catch (e) {
           toolbox_api.Node newThreatNode =
-              toolbox_api.NodeImpl(':Global:ThreatWeight:$id', 'Cloud-Adapter');
+              toolbox_api.NodeImpl(':Global:Recommendations:$id', 'Cloud-Adapter');
           toolbox_api.Visibility? visible =
               toolbox_api.VisibilityExtension.valueOf("white");
           if (visible != null) {
@@ -2148,4 +2215,29 @@ class ReplicationService implements ReplicationController {
       throw ReplicationException(e.toString());
     }
   }
+
+  @override
+  Future<void> geigerReplicationWithGlobalData(deleteHandler, createHandler, updateHandler, renameHandler) {
+    // TODO: implement geigerReplicationWithGlobalData
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> updateGlobalData() async {
+    late bool result;
+    try {
+      /// Updates Threat Weights
+      await updateThreatWeights();
+      /// Updates Global Recommendations in a Cloud to Local way
+      await updateRecommendations();
+      /// Updates Security Defenders Info
+      await updateSecurityDefendersInfo();
+      result = true;
+    } catch (e) {
+      print("[UPDATE GLOBAL DATA EXCEPTION]");
+      print(e);
+    }
+    return result;
+  }
+
 }

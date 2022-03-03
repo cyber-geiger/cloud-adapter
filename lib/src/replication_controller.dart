@@ -15,8 +15,17 @@ abstract class ReplicationController {
   Future<bool> checkReplication();
 
   /// Achieves full or partial replication
+  /// INCLUDES GEIGERREPLICATIONLISTENER METHOD
+  /// WITHOUT GLOBAL DATA
   Future<void> geigerReplication(
       deleteHandler, createHandler, updateHandler, renameHandler);
+
+  /// Achieves full or partial replication
+  /// INCLUDES LISTENERS
+  /// INCLUDES GLOBAL DATA
+  Future<void> geigerReplicationWithGlobalData(
+      deleteHandler, createHandler, updateHandler, renameHandler);
+
 
   Future<void> geigerReplicationListener(
       deleteHandler, createHandler, updateHandler, renameHandler);
@@ -62,6 +71,19 @@ abstract class ReplicationController {
 
   /// Checks the consent of a user & if needed, asks for it
   Future<bool> checkConsent(toolbox_api.Node node, String username);
+
+  /// THIS METHOD INCLUDES ALL THE SUB-UPDATES METHODS
+  /// UPDATETHREATWEIGHTS
+  /// UPDATERECOMMENDATIONS
+  /// UPDATESECURITYDEFENDERSINFO
+  ///   includes:
+  ///     security defenders
+  ///     security defenders organizations
+  ///     security defenders location
+  Future<bool> updateGlobalData();
+
+  /// Updates Threat Weights
+  Future<void> updateThreatWeights();
 
   /// Updates Global Recommendations in a Cloud to Local way
   Future<void> updateRecommendations();

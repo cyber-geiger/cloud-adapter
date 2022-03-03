@@ -13,11 +13,13 @@ import 'dart:io';
 //import 'package:cloud_replication_package/src/cloud_models/event.dart';
 //import 'package:cloud_replication_package/src/cloud_models/short_user.dart';
 //import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
+import 'package:cloud_replication_package/cloud_replication_package.dart';
 import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 //import 'package:cloud_replication_package/src/cloud_models/user.dart';
 //import 'package:cloud_replication_package/src/service/cloud_service.dart';
 //import 'package:cloud_replication_package/src/service/event_listener.dart';
 import 'package:cloud_replication_package/src/service/node_listener.dart';
+import 'package:cloud_replication_package/src/service/replication_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
@@ -125,6 +127,11 @@ Future<String> generateUUID() async {
 }
 
 void replicationTests() async {
+  test("s", () async {
+    ReplicationController rep = ReplicationService();
+    await rep.initGeigerStorage();
+    await rep.updateThreatWeights();
+  });
   test('STORAGE LISTENER - CHECK CODE', () async {
     print("CHECK STORAGE LISTENER");
     //Function? handler;
