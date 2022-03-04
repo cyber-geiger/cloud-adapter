@@ -4,11 +4,9 @@ import 'dart:io';
 import 'package:cloud_replication_package/src/cloud_models/recommendation.dart';
 import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 import 'package:flutter/cupertino.dart';
-//import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
-//import 'package:path_provider/path_provider.dart';
 
 import '../../cloud_models/event.dart';
 import '../../cloud_models/threat_weights.dart';
@@ -20,9 +18,6 @@ import '../../cloud_models/security_defenders_organization.dart';
 
 class CloudService {
   final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
-
-  //File asset = File('assets/resources/adapter.p12');
-  String pass = 'RYESpxkaet6Bn5KMsV4w';
 
   CloudService() {
     WidgetsFlutterBinding.ensureInitialized();

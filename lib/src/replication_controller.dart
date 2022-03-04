@@ -23,9 +23,8 @@ abstract class ReplicationController {
   /// Achieves full or partial replication
   /// INCLUDES LISTENERS
   /// INCLUDES GLOBAL DATA
-  Future<void> geigerReplicationWithGlobalData(
+  Future<void> geigerReplicationWithoutGlobalData(
       deleteHandler, createHandler, updateHandler, renameHandler);
-
 
   Future<void> geigerReplicationListener(
       deleteHandler, createHandler, updateHandler, renameHandler);

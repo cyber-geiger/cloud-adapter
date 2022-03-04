@@ -19,16 +19,6 @@ void pairingTests() async {
     print("PRE DEVICE CHILDREN NODE");
     print(await devices.getChildren());
 
-    /// GET ALL EVENTS FROM A USER AND DETAILS
-    /* print("****************************************************************************");
-    var cloud = CloudService();
-    List<String> response = await cloud.getUserEvents('b9be2ca7-2318-482f-997e-bdcd62981519');
-    for (var s in response) {
-      Event checker = await cloud.getSingleUserEvent('b9be2ca7-2318-482f-997e-bdcd62981519', s);
-      print(checker.toJson());
-    }*/
-    ///print("******************************* ALL USER EVENTS ****************************");
-    /// NOW CREATE TWO RANDOM CLOUD USERS AND SET PAIR
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
     await rep.setPair('4ed8fa47-857a-4b7a-a2b8-328107953668',

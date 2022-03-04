@@ -1,36 +1,18 @@
-//import 'package:convert/convert.dart';
-
-//import 'dart:math';
-// ignore: library_prefixes
-//import 'package:cloud_replication_package/src/replication_exception.dart';
-// ignore: library_prefixes
-import 'package:cloud_replication_package/src/cloud_models/user.dart';
-//import 'package:encrypt/encrypt.dart' as Enc;
-
-//import 'package:cloud_replication_package/cloud_replication_package.dart';
-//import 'package:cloud_replication_package/src/cloud_models/event.dart';
-//import 'package:cloud_replication_package/cloud_replication_package.dart';
-import 'package:cloud_replication_package/src/cloud_models/event.dart';
-//import 'package:cloud_replication_package/src/cloud_models/short_user.dart';
-import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
-import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
-//import 'package:cloud_replication_package/src/cloud_models/user.dart';
-import 'package:cloud_replication_package/src/service/cloud_service/cloud_service.dart';
-//import 'package:cloud_replication_package/src/service/event_listener.dart';
-//import 'package:cloud_replication_package/src/service/node_listener.dart';
-//import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
-//import 'package:intl/intl.dart';
 import 'package:test/test.dart';
-//import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
-//import 'package:geiger_api/geiger_api.dart';
+
+import 'package:cloud_replication_package/src/cloud_models/user.dart';
+import 'package:cloud_replication_package/src/cloud_models/event.dart';
+import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
+import 'package:cloud_replication_package/src/service/cloud_service/cloud_service.dart';
+import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 
 /// CLOUD SERVICE TESTS
 void cloudServiceTests() async {
   /// TEST OF EACH METHOD
   test('Authentication', () async {
     var cloud = CloudService();
-    await cloud.createUser('letsseeifcan');
+    await cloud.createUser('DemoTest');
   });
   test('merge Test', () async {
     var cloud = CloudService();
