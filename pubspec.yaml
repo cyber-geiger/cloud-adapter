@@ -1,7 +1,7 @@
 name: cloud_replication_package
 description: A new Flutter package project.
 version: 0.0.1
-homepage:
+homepage: https://github.com/cyber-geiger/toolbox-replication
 
 environment:
   sdk: ">=2.12.0 <3.0.0"
@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  #geiger_localstorage: ^0.6.11
+  geiger_localstorage: ^0.6.39
   geiger_api: ^0.7.2
   #sqlite3_flutter_libs: ^0.5.1
   #sqlite3: ^1.2.0
