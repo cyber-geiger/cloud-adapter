@@ -15,6 +15,7 @@ import '../../cloud_models/short_user.dart';
 import '../../cloud_models/recommendation.dart';
 import '../../cloud_models/security_defender_user.dart';
 import '../../cloud_models/security_defenders_organization.dart';
+import '../../cloud_models/threats.dart';
 
 class CloudService {
   final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
@@ -719,6 +720,42 @@ class CloudService {
         List<dynamic> object = jsonDecode(response.body);
 
         return object.map((e) => ThreatWeights.fromJson(e)).toList();
+      } else {
+        print('FAILURE: STATUS CODE ' + response.statusCode.toString());
+        throw Exception;
+      }
+    } catch (e) {
+      print('SOME EXCEPTION OCCURED');
+      print(e);
+      throw Exception;
+    }
+  }
+
+  /// *************************
+  /// GEIGER THREATS OPERATIONS
+  /// *************************
+  Future<List<Threats>> getThreats() async {
+    try {
+      print('GET THREATS');
+      final String threatUri = '/threats';
+      Uri url = Uri.parse(uri + threatUri);
+      print(url);
+      HttpClient client = HttpClient() //context: context)
+        ..badCertificateCallback =
+            ((X509Certificate cert, String host, int port) => true);
+      var ioClient = IOClient(client);
+      final response = await ioClient.get(
+        url,
+        headers: <String, String>{
+          'accept': 'application/json',
+          'content-type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        print('RESPONSE OK');
+        //var object = json.decode(response.body);
+        List<dynamic> object = jsonDecode(response.body);
+        return object.map((e) => Threats.fromJson(e)).toList();
       } else {
         print('FAILURE: STATUS CODE ' + response.statusCode.toString());
         throw Exception;

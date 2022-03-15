@@ -9,10 +9,15 @@ abstract class ReplicationController {
   /// Inits the storageController through the GeigerAPI
   Future<void> initGeigerStorage();
 
-  /// FOR DEV PURPOSES. CHECK IF REPLICATION HAS TOOK PLACE
-  /// returns true if replication has been done
-  /// else returns false
+  /// Checks if replication has took place
+  /// If replication has been done -> TRUE
+  /// If replication has not been done -> FALSE
   Future<bool> checkReplication();
+
+  /// Checks if a user has replicated data in <30 days
+  /// If replication <30 days -> TRUE
+  /// If replication >30 days -> FALSE
+  Future<bool> checkReplicationTimingStrategy();
 
   /// Achieves full or partial replication
   /// INCLUDES GEIGERREPLICATIONLISTENER METHOD
@@ -72,6 +77,7 @@ abstract class ReplicationController {
   Future<bool> checkConsent(toolbox_api.Node node, String username);
 
   /// THIS METHOD INCLUDES ALL THE SUB-UPDATES METHODS
+  /// UPDATE THREATS
   /// UPDATETHREATWEIGHTS
   /// UPDATERECOMMENDATIONS
   /// UPDATESECURITYDEFENDERSINFO
@@ -81,10 +87,14 @@ abstract class ReplicationController {
   ///     security defenders location
   Future<bool> updateGlobalData();
 
+  /// updates Geiger defined threats
+  Future<void> updateThreats();
+
   /// Updates Threat Weights
   Future<void> updateThreatWeights();
 
   /// Updates Global Recommendations in a Cloud to Local way
+  /// TO GET FULL DATA -> UPDATETHREATWEIGHTS IS REQUIRED PREVIOUSLY
   Future<void> updateRecommendations();
 
   /// Updates Security Defenders Info
@@ -96,4 +106,22 @@ abstract class ReplicationController {
   Future<void> updateHanlder(EventChange event);
   Future<void> renameHanlder(EventChange event);
   Future<void> deleteHandler(EventChange event);
+
+  /// EXPERIMENTAL METHODS
+  /// CHECK IF SOLVE THE SETPAIR/GETSHAREDNODES BEHAVIOUR
+  //Future<bool> setDevicePair();
+
+  //Future<bool> getDevicesNodes(String localId, String pairedId);
+
+  //Future<bool> unpairDevices();
+
+  //Future<bool> setEmployeePair();
+
+  //Future<bool> getEmployeeNodes();
+
+  //Future<bool> unpairEmployee();
+
+  //Future<bool> setSupervisorPair();
+
+  //Future<bool> unpairSupervisor();
 }

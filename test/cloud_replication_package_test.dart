@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:cloud_replication_package/cloud_replication_package.dart';
 import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
@@ -110,24 +111,38 @@ void replicationTests() async {
   test("TEST UPDATE GLOBAL DATA - PROFILES & THREATS", () async {
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
-    await rep.updateThreatWeights();
+    await rep.updateGlobalData();
     // GET :Global:threats
     // GET :Global:profiles
-    GeigerApi localMaster =
-        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    GeigerApi localMaster = (await getGeigerApi(
+        "", GeigerApi.masterId, Declaration.doNotShareData))!;
     // ignore: unused_local_variable
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
     toolbox_api.Node profile = await storageController.get(":Global:profiles");
     print("PROFILE NODE");
     print(profile);
     print("PROFILE CHILDREN");
-    print(await profile.getChildren());
+    Map<String, toolbox_api.Node> n2 = await profile.getChildren();
+    for (var entry in n2.entries) {
+      toolbox_api.Node n = await storageController.get(entry.value.path);
+      print(n);
+    }
     toolbox_api.Node threats = await storageController.get(":Global:threats");
-    print("THREAT NODE");
-    print(threats);
     print("THREAT CHILDREN");
-    print(await threats.getChildren());
-  });
+    Map<String, toolbox_api.Node> n = await threats.getChildren();
+    for (var entry in n.entries) {
+      toolbox_api.Node n = await storageController.get(entry.value.path);
+      print(n);
+    }
+    toolbox_api.Node rec =
+        await storageController.get(":Global:Recommendations");
+    print("CHILDREN");
+    Map<String, toolbox_api.Node> n1 = await rec.getChildren();
+    for (var entry in n1.entries) {
+      toolbox_api.Node n = await storageController.get(entry.value.path);
+      print(n);
+    }
+  }, timeout: Timeout(Duration(minutes: 5)));
   test('STORAGE LISTENER - LAST NODE UPDATED', () async {
     print("LISTENER TEST - CHECKS DELETE BEHAVIOUR");
     GeigerApi localMaster =

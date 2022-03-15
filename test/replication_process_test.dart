@@ -38,7 +38,14 @@ void replicationTests() async {
     await rep.initGeigerStorage();
     await rep.geigerReplication(rep.deleteHandler, rep.createHandler,
         rep.renameHanlder, rep.updateHanlder);
+
     await rep.endGeigerStorage();
+
+    GeigerApi localMaster = (await getGeigerApi(
+        "", GeigerApi.masterId, Declaration.doNotShareData))!;
+    // ignore: unused_local_variable
+    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    print(await storageController.dump());
   }, timeout: Timeout(Duration(minutes: 5)));
 }
 

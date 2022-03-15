@@ -8,7 +8,7 @@ part of 'recommendation.dart';
 
 Recommendation _$RecommendationFromJson(Map<String, dynamic> json) =>
     Recommendation(
-      id_recommendation: json['id_recommendation'] as String?,
+      id: json['id'] as String?,
       Action: json['Action'] as String?,
       RecommendationType: json['RecommendationType'] as String?,
       Steps:
@@ -19,14 +19,14 @@ Recommendation _$RecommendationFromJson(Map<String, dynamic> json) =>
       minimunRequiredKnowledgeLevel:
           json['minimunRequiredKnowledgeLevel'] as int,
       parentUUID: json['parentUUID'] as String?,
-      relatedThreatWeights: (json['relatedThreatWeights'] as List<dynamic>?)
+      relatedThreatsWeights: (json['relatedThreatsWeights'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
-    )..idrecommendation = json['idrecommendation'] as String?;
+    )..id = json['id'] as String?;
 
 Map<String, dynamic> _$RecommendationToJson(Recommendation instance) =>
     <String, dynamic>{
-      'id_recommendation': instance.id_recommendation,
+      'id': instance.id,
       'Action': instance.Action,
       'RecommendationType': instance.RecommendationType,
       'Steps': instance.Steps,
@@ -35,6 +35,5 @@ Map<String, dynamic> _$RecommendationToJson(Recommendation instance) =>
       'short': instance.short,
       'minimunRequiredKnowledgeLevel': instance.minimunRequiredKnowledgeLevel,
       'parentUUID': instance.parentUUID,
-      'relatedThreatWeights': instance.relatedThreatWeights,
-      'idrecommendation': instance.idrecommendation,
+      'relatedThreatsWeights': instance.relatedThreatsWeights,
     };

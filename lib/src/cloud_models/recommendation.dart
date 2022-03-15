@@ -6,7 +6,7 @@ part 'recommendation.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Recommendation {
-  String? id_recommendation;
+  String? id;
   String? Action;
   String? RecommendationType;
   List<String>? Steps;
@@ -15,10 +15,10 @@ class Recommendation {
   String? short;
   int minimunRequiredKnowledgeLevel;
   String? parentUUID;
-  List<String>? relatedThreatWeights;
+  List<String>? relatedThreatsWeights;
 
   Recommendation({
-    required this.id_recommendation,
+    required this.id,
     this.Action,
     this.RecommendationType,
     this.Steps,
@@ -27,7 +27,7 @@ class Recommendation {
     this.short,
     required this.minimunRequiredKnowledgeLevel,
     this.parentUUID,
-    this.relatedThreatWeights,
+    this.relatedThreatsWeights,
   });
 
   factory Recommendation.fromJson(Map<String, dynamic> json) =>
@@ -35,9 +35,9 @@ class Recommendation {
 
   Map<String, dynamic> toJson() => _$RecommendationToJson(this);
 
-  String? get idrecommendation => id_recommendation;
+  get getId => id;
 
-  set idrecommendation(String? value) => id_recommendation = value;
+  set setId(id) => this.id = id;
 
   get getAction => Action;
 
@@ -73,8 +73,8 @@ class Recommendation {
 
   set setParentUUID(parentUUID) => this.parentUUID = parentUUID;
 
-  get getRelatedThreatWeights => relatedThreatWeights;
+  get getRelatedThreatsWeights => relatedThreatsWeights;
 
-  set setRelatedThreatWeights(relatedThreatWeights) =>
-      this.relatedThreatWeights = relatedThreatWeights;
+  set setRelatedThreatsWeights(relatedThreatsWeights) =>
+      this.relatedThreatsWeights = relatedThreatsWeights;
 }

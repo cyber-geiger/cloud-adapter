@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'package:cloud_replication_package/src/cloud_models/recommendation.dart';
 import 'package:cloud_replication_package/src/cloud_models/security_defender_user.dart';
 import 'package:cloud_replication_package/src/cloud_models/security_defenders_organization.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:http/http.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/locale.dart';
 
@@ -19,9 +21,12 @@ import 'package:cloud_replication_package/src/service/cloud_service/cloud_servic
 import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 import 'package:geiger_api/geiger_api.dart';
 
+import 'package:uuid/uuid.dart';
+
 // ignore: library_prefixes
 import 'package:encrypt/encrypt.dart' as Enc;
 
+import '../cloud_models/threats.dart';
 import 'node_listener.dart';
 import '../cloud_models/event.dart';
 import '../cloud_models/short_user.dart';
@@ -79,6 +84,28 @@ class ReplicationService implements ReplicationController {
       toolbox_api.Node checker =
           await getNode(':Local:Replication:LastReplication');
       return true;
+    } catch (e) {
+      print(debugLine + 'EXCEPTION');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> checkReplicationTimingStrategy() async {
+    print(debugLine + 'checkReplicationTimingStrategy');
+    try {
+      // ignore: unused_local_variable
+      toolbox_api.Node checker =
+          await getNode(':Local:Replication:LastReplication');
+      DateTime _actual = DateTime.now();
+      DateTime _fromDate = _actual.subtract(Duration(days: 30));
+      int milis = _fromDate.millisecondsSinceEpoch;
+      int nodeTimestamp = checker.lastModified;
+      if (milis < nodeTimestamp) {
+        return false;
+      } else {
+        return true;
+      }
     } catch (e) {
       print(debugLine + 'EXCEPTION');
       return false;
@@ -157,6 +184,8 @@ class ReplicationService implements ReplicationController {
       return false;
     }
     print(_username);
+    // CREATE PAIRING STRUCTURE
+    await createPairingStructure();
 
     /// CLOUD TO LOCAL REPLICATION
     print("[2nd FLOW] - CLOUD TO LOCAL");
@@ -181,6 +210,9 @@ class ReplicationService implements ReplicationController {
   Future<bool> updateGlobalData() async {
     bool result = false;
     try {
+      /// Updates GEIGER Defined Threats
+      await updateThreats();
+
       /// Updates Threat Weights
       await updateThreatWeights();
 
@@ -342,7 +374,8 @@ class ReplicationService implements ReplicationController {
           if (tlp.toLowerCase() == 'red') {
             print("TLP:RED NODE");
             try {
-              var convertedNode = await encryptCloudData(sorted);
+              Map<dynamic, dynamic> convertedNode =
+                  await encryptCloudData(sorted);
               toCheck.content = json.encode(convertedNode);
             } catch (e) {
               print(e);
@@ -739,7 +772,6 @@ class ReplicationService implements ReplicationController {
             List<Event> waitingEvents = [];
 
             print("GET USER SHARED EVENTS");
-            print(allEvents);
             for (var event in allEvents) {
               Event newEvent =
                   await cloud.getSingleUserEvent(receiverUserId, event);
@@ -747,8 +779,8 @@ class ReplicationService implements ReplicationController {
               var owner = newEvent.getOwner;
               String id = newEvent.id_event;
               var type = newEvent.type;
-              if (owner != null) {
-                print("EVENT OWNER: $owner - SENDER ID: $senderUserId");
+              if (owner != receiverUserId) {
+                print("THE OWNER OF THE SHARED NODE IS: " + owner!);
                 //Map<String, dynamic> data;
                 if (newEvent.content != null) {
                   if (type!.toLowerCase() == "keyvalue") {
@@ -757,17 +789,19 @@ class ReplicationService implements ReplicationController {
                         convertJsonStringToNode(newEvent.content!);
 
                     /// RENAME NODE TO ADD PLUGIN ID
-                    String newPath = node.path
-                        .replaceAll(node.name, pluginAPI + ":" + node.name);
-                    await checkParents(newPath);
-                    try {
-                      await storageController.rename(
-                          node.path,
-                          node.path.replaceAll(
-                              node.name, pluginAPI + ":" + node.name));
-                    } catch (e) {
-                      print("NODE ALREADY EXISTS - ONLY UPDATE");
+                    //String newPath = node.path
+                    //    .replaceAll(node.name, pluginAPI + ":" + node.name);
+                    await checkParents(node.path);
+                    //print("********* NEW SHARED NODE: " + newPath);
+                    toolbox_api.Node pairedNode =
+                        toolbox_api.NodeImpl(node.path, pluginAPI);
+                    Map<String, toolbox_api.NodeValue> nodeData =
+                        await node.getValues();
+                    for (var entry in nodeData.entries) {
+                      pairedNode.addOrUpdateValue(entry.value);
                     }
+                    print(
+                        "NODE TO BE UPDATED *****************************************");
                     await updateLocalNodeWithCloudNode(node, senderUserId);
                   }
                   if (type.toLowerCase() == "user_object") {
@@ -779,24 +813,22 @@ class ReplicationService implements ReplicationController {
                       ///AND REPLICATE
                       Map<dynamic, dynamic> jsonify =
                           await decryptCloudData(newEvent);
-                      print("DECRYPTS SHARED NODE");
                       newEvent.setContent = jsonEncode(jsonify);
                       toolbox_api.Node node =
                           convertJsonStringToNode(newEvent.content!);
-                      print("SUCCESS IN CONVERT");
-                      String newPath = node.path
-                          .replaceAll(node.name, pluginAPI + ":" + node.name);
-                      print(newPath);
-                      await checkParents(newPath);
-                      print("NEW PATH AND PARENTS SET");
-                      try {
-                        await storageController.rename(
-                            node.path,
-                            node.path.replaceAll(
-                                node.name, pluginAPI + ":" + node.name));
-                      } catch (e) {
-                        print("NODE ALREADY EXISTS - ONLY UPDATE");
+                      //String newPath = node.path
+                      //    .replaceAll(node.name, pluginAPI + ":" + node.name);
+                      await checkParents(node.path);
+                      //print("********* NEW SHARED NODE: " + newPath);
+                      toolbox_api.Node pairedNode =
+                          toolbox_api.NodeImpl(node.path, pluginAPI);
+                      Map<String, toolbox_api.NodeValue> nodeData =
+                          await node.getValues();
+                      for (var entry in nodeData.entries) {
+                        pairedNode.addOrUpdateValue(entry.value);
                       }
+                      print(
+                          "NODE TO BE UPDATED *****************************************");
                       await updateLocalNodeWithCloudNode(node, senderUserId);
                     } catch (e) {
                       /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
@@ -819,17 +851,19 @@ class ReplicationService implements ReplicationController {
                 toolbox_api.Node node =
                     convertJsonStringToNode(waiting.content!);
 
-                String newPath = node.path
-                    .replaceAll(node.name, pluginAPI + ":" + node.name);
-                await checkParents(newPath);
-                try {
-                  await storageController.rename(
-                      node.path,
-                      node.path
-                          .replaceAll(node.name, pluginAPI + ":" + node.name));
-                } catch (e) {
-                  print("NODE ALREADY EXISTS - ONLY UPDATE");
+                //String newPath = node.path
+                //    .replaceAll(node.name, pluginAPI + ":" + node.name);
+                await checkParents(node.path);
+                //print("********* NEW SHARED NODE: " + newPath);
+                toolbox_api.Node pairedNode =
+                    toolbox_api.NodeImpl(node.path, pluginAPI);
+                Map<String, toolbox_api.NodeValue> nodeData =
+                    await node.getValues();
+                for (var entry in nodeData.entries) {
+                  pairedNode.addOrUpdateValue(entry.value);
                 }
+                print(
+                    "NODE TO BE UPDATED *****************************************");
                 await updateLocalNodeWithCloudNode(node, senderUserId);
               } catch (e) {
                 print(
@@ -837,19 +871,29 @@ class ReplicationService implements ReplicationController {
                 try {
                   toolbox_api.Node node =
                       convertJsonStringToNode(waiting.content!);
-
-                  String newPath = node.path
-                      .replaceAll(node.name, pluginAPI + ":" + node.name);
-                  await checkParents(newPath);
-                  try {
+                  //String newPath = node.path
+                  //    .replaceAll(node.name, pluginAPI + ":" + node.name);
+                  await checkParents(node.path);
+                  //print("********* NEW SHARED NODE: " + newPath);
+                  toolbox_api.Node pairedNode =
+                      toolbox_api.NodeImpl(node.path, pluginAPI);
+                  Map<String, toolbox_api.NodeValue> nodeData =
+                      await node.getValues();
+                  for (var entry in nodeData.entries) {
+                    pairedNode.addOrUpdateValue(entry.value);
+                  }
+                  /*try {
                     await storageController.rename(
                         node.path,
-                        node.path.replaceAll(
-                            node.name, pluginAPI + ":" + node.name));
+                        newPath);
+                    await storageController.delete(node.path);
                   } catch (e) {
                     print("NODE ALREADY EXISTS - ONLY UPDATE");
-                  }
-                  await updateLocalNodeWithCloudNode(node, senderUserId);
+                    print(e);
+                  }*/
+                  print(
+                      "NODE TO BE UPDATED *****************************************");
+                  await updateLocalNodeWithCloudNode(pairedNode, senderUserId);
                 } catch (e) {
                   print("GET SHARED NODES FAILURE");
                   print(e.toString());
@@ -922,7 +966,7 @@ class ReplicationService implements ReplicationController {
       // We will try to initialize replication as an external plugin
       // When the bug has been fixed, we should reverse back to be an internal plugin
       localMaster = (await getGeigerApi(
-          "cloud_adapter", GeigerApi.masterId, Declaration.doShareData))!;
+          "cloud_adapter", GeigerApi.masterId, Declaration.doNotShareData))!;
       // localMaster = (await getGeigerApi(
       //     "cloud_adapter", 'atos_replication_id', Declaration.doShareData))!;
       print('Cloud Adapter Plugin:');
@@ -1072,10 +1116,9 @@ class ReplicationService implements ReplicationController {
     }
   }
 
-  /// STORE :Global:threats
   @override
-  Future<void> updateThreatWeights() async {
-    print('[UPDATE THREAT WEIGHTS]');
+  Future<void> updateThreats() async {
+    print('[UPDATE  GEIGER THREATS]');
     print("CHECK PARENT NODE: :GLOBAL:THREATS");
     try {
       // ignore: unused_local_variable
@@ -1083,7 +1126,7 @@ class ReplicationService implements ReplicationController {
     } catch (e) {
       /// CREATE NODE FOR TYPE of TLP WHITE EVENT
       toolbox_api.Node typeChecker =
-          toolbox_api.NodeImpl(':Global:threats', 'ULEI');
+          toolbox_api.NodeImpl(':Global:threats', replicationAPI);
       toolbox_api.Visibility? checkerVisible =
           toolbox_api.VisibilityExtension.valueOf("white");
       if (checkerVisible != null) {
@@ -1091,6 +1134,32 @@ class ReplicationService implements ReplicationController {
       }
       await storageController.add(typeChecker);
     }
+    List<Threats> threats = await cloud.getThreats();
+    for (var threat in threats) {
+      String? uuid = threat.getUuid;
+      String? name = threat.getName;
+      String? value = threat.getThreat;
+      try {
+        toolbox_api.Node compare = await getNode(':Global:threats:$uuid');
+        compare.addOrUpdateValue(toolbox_api.NodeValueImpl('name', name!));
+        compare.addOrUpdateValue(
+            toolbox_api.NodeValueImpl('GEIGER_threat', value!));
+        await storageController.addOrUpdate(compare);
+      } catch (e) {
+        toolbox_api.Node compare =
+            toolbox_api.NodeImpl(':Global:threats:$uuid', replicationAPI);
+        compare.addOrUpdateValue(toolbox_api.NodeValueImpl('name', name!));
+        compare.addOrUpdateValue(
+            toolbox_api.NodeValueImpl('GEIGER_threat', value!));
+        await storageController.addOrUpdate(compare);
+      }
+    }
+  }
+
+  /// STORE :Global:threats
+  @override
+  Future<void> updateThreatWeights() async {
+    print('[UPDATE THREAT WEIGHTS]');
     print("CHECK PARENT NODE: :GLOBAL:PROFILES");
     try {
       // ignore: unused_local_variable
@@ -1125,8 +1194,9 @@ class ReplicationService implements ReplicationController {
         profileNodes.add(scProf[0]);
       } else {
         /// CREATE NEW
+        String newUUID = Uuid().v4();
         toolbox_api.Node newProfile =
-            toolbox_api.NodeImpl(':Global:profiles:$profile', replicationAPI);
+            toolbox_api.NodeImpl(':Global:profiles:$newUUID', replicationAPI);
         newProfile.addOrUpdateValue(toolbox_api.NodeValueImpl('name', profile));
         await storageController.add(newProfile);
         profileNodes.add(newProfile);
@@ -1137,39 +1207,38 @@ class ReplicationService implements ReplicationController {
       ThreatDict? data = weight.threatDict;
       if (data != null) {
         Map<String, dynamic> mapper = data.toJson();
-        mapper.forEach((key, value) async {
-          String id = key.replaceAll(" ", "");
-          if (id.length > 40) {
-            id = id[40];
-          }
+        for (var d in mapper.entries) {
+          String key = d.key;
+          List<double> value = d.value;
+          //mapper.forEach((key, value) async {
           toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria(
-              searchPath: ':Global:threats', key: 'GEIGER_threat', value: id);
+              searchPath: ':Global:threats:',
+              key: 'GEIGER_threat',
+              value: '${key[0].toUpperCase()}${key.substring(1)}');
           List<toolbox_api.Node> scNode =
               await storageController.search(criteria);
           List<double> val = value;
           String path;
           if (scNode.isNotEmpty) {
-            toolbox_api.Node newThreat = scNode[0];
-            path = newThreat.path;
-          } else {
-            /// CREATE NEW
-            toolbox_api.Node newThreat =
-                toolbox_api.NodeImpl(':Global:threats:$id', replicationAPI);
-            newThreat.addOrUpdateValue(
-                toolbox_api.NodeValueImpl('GEIGER_threat', key));
-            newThreat.addOrUpdateValue(toolbox_api.NodeValueImpl('name', key));
-            await storageController.addOrUpdate(newThreat);
-
-            /// FOR EACH VALUE
-            path = newThreat.name;
+            for (var element in scNode) {
+              toolbox_api.Node newThreat = element;
+              path = newThreat.name;
+              toolbox_api.NodeValue? nameVal =
+                  (await newThreat.getValue('name'));
+              toolbox_api.NodeValue? threatVal =
+                  (await newThreat.getValue('GEIGER_threat'));
+              if (nameVal!.value == threatVal!.value) {
+                int i = 0;
+                for (var v in val) {
+                  profileNodes[i].addOrUpdateValue(
+                      toolbox_api.NodeValueImpl(path, v.toString()));
+                  i++;
+                }
+              }
+            }
           }
-          int i = 0;
-          for (var v in val) {
-            profileNodes[i].addOrUpdateValue(
-                toolbox_api.NodeValueImpl(path, v.toString()));
-            i++;
-          }
-        });
+        }
+        //});
       }
     }
 
@@ -1199,17 +1268,59 @@ class ReplicationService implements ReplicationController {
     }
     List<Recommendation> recommendations = await cloud.getRecommendations();
     for (var rec in recommendations) {
-      String? id = rec.id_recommendation;
+      String? id = rec.getId;
       if (id != null) {
         try {
           toolbox_api.Node checker =
               await getNode(':Global:Recommendations:$id');
           Map<String, dynamic> mapper = rec.toJson();
-          mapper.forEach((key, value) {
-            checker.addOrUpdateValue(
-                toolbox_api.NodeValueImpl(key, value.toString()));
-          });
-          await storageController.update(checker);
+          for (var r in mapper.entries) {
+            if (r.key != "relatedThreatsWeights") {
+              checker.addOrUpdateValue(
+                  toolbox_api.NodeValueImpl(r.key, r.value.toString()));
+            } else {
+              /// IF RELATED THREATS WEIGHTS
+              /// SEARCH CRITERIA TO GET NODE ID FOR KEY VALUE
+              String data = "";
+              List<String> related = r.value;
+              List<String> splitted = related[0].split(",");
+              for (var split in splitted) {
+                try {
+                  List<String> splitThreat = split.split(":");
+                  String threat = splitThreat[0].trim();
+                  String threatValue = splitThreat[1].trim();
+                  toolbox_api.SearchCriteria profileCriteria =
+                      toolbox_api.SearchCriteria(
+                          searchPath: ':Global:threats:',
+                          key: 'GEIGER_threat',
+                          value: threat);
+                  List<toolbox_api.Node> scProf =
+                      await storageController.search(profileCriteria);
+                  if (scProf.isNotEmpty) {
+                    for (var element in scProf) {
+                      toolbox_api.Node threatNode = element;
+                      String uuid = threatNode.name;
+                      toolbox_api.NodeValue? nameVal =
+                          (await threatNode.getValue('name'));
+                      toolbox_api.NodeValue? threatVal =
+                          (await threatNode.getValue('GEIGER_threat'));
+                      if (nameVal!.value == threatVal!.value) {
+                        if (data.isEmpty == true) {
+                          data = data + uuid + "," + threatValue;
+                        } else {
+                          data = data + ";" + uuid + "," + threatValue;
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  print("EXCEPTION GETTING RECOMMENDATIONS THREAT WEIGHTS");
+                }
+              }
+              checker.addOrUpdateValue(toolbox_api.NodeValueImpl(r.key, data));
+            }
+          }
+          await storageController.addOrUpdate(checker);
         } catch (e) {
           toolbox_api.Node newThreatNode = toolbox_api.NodeImpl(
               ':Global:Recommendations:$id', replicationAPI);
@@ -1219,11 +1330,54 @@ class ReplicationService implements ReplicationController {
             newThreatNode.visibility = visible;
           }
           Map<String, dynamic> mapper = rec.toJson();
-          mapper.forEach((key, value) {
-            newThreatNode.addOrUpdateValue(
-                toolbox_api.NodeValueImpl(key, value.toString()));
-          });
-          await storageController.add(newThreatNode);
+          for (var r in mapper.entries) {
+            if (r.key != "relatedThreatsWeights") {
+              newThreatNode.addOrUpdateValue(
+                  toolbox_api.NodeValueImpl(r.key, r.value.toString()));
+            } else {
+              /// IF RELATED THREATS WEIGHTS
+              /// SEARCH CRITERIA TO GET NODE ID FOR KEY VALUE
+              String data = "";
+              List<String> related = r.value;
+              List<String> splitted = related[0].split(",");
+              for (var split in splitted) {
+                try {
+                  List<String> splitThreat = split.split(":");
+                  String threat = splitThreat[0].trim();
+                  String threatValue = splitThreat[1].trim();
+                  toolbox_api.SearchCriteria profileCriteria =
+                      toolbox_api.SearchCriteria(
+                          searchPath: ':Global:threats:',
+                          key: 'GEIGER_threat',
+                          value: threat);
+                  List<toolbox_api.Node> scProf =
+                      await storageController.search(profileCriteria);
+                  if (scProf.isNotEmpty) {
+                    for (var element in scProf) {
+                      toolbox_api.Node threatNode = element;
+                      String uuid = threatNode.name;
+                      toolbox_api.NodeValue? nameVal =
+                          (await threatNode.getValue('name'));
+                      toolbox_api.NodeValue? threatVal =
+                          (await threatNode.getValue('GEIGER_threat'));
+                      if (nameVal!.value == threatVal!.value) {
+                        if (data.isEmpty == true) {
+                          data = data + uuid + "," + threatValue;
+                        } else {
+                          data = data + ";" + uuid + "," + threatValue;
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  print("EXCEPTION GETTING RECOMMENDATIONS THREAT WEIGHTS");
+                }
+              }
+              newThreatNode
+                  .addOrUpdateValue(toolbox_api.NodeValueImpl(r.key, data));
+            }
+          }
+          await storageController.addOrUpdate(newThreatNode);
         }
       }
     }
@@ -1508,6 +1662,7 @@ class ReplicationService implements ReplicationController {
   toolbox_api.Node convertJsonStringToNode(String content) {
     /// convert string event content to Json
     print("CONVERT JSON TO NODE");
+    print(content);
     try {
       Map<String, dynamic> mapper = jsonDecode(content);
       var path = mapper['path'];
@@ -1666,16 +1821,20 @@ class ReplicationService implements ReplicationController {
       /// ELSE - CREATE NODE
       if (p.isNotEmpty) {
         createPath = createPath + ':' + p;
-        print(createPath);
         try {
           // ignore: unused_local_variable
           toolbox_api.Node nodeChecker = await getNode(createPath);
         } catch (e) {
-          print("PARENT NODE DOES NOT EXIST - CREATE NEW ONE");
           toolbox_api.Node parentNode =
-              toolbox_api.NodeImpl(createPath, 'CloudAdapter');
+              toolbox_api.NodeImpl(createPath, pluginAPI);
+          toolbox_api.Visibility? checkerVisible =
+              toolbox_api.VisibilityExtension.valueOf("amber");
+          if (checkerVisible != null) {
+            parentNode.visibility = checkerVisible;
+          }
           try {
             await storageController.addOrUpdate(parentNode);
+            print(createPath);
           } catch (e) {
             print(e);
             exist = false;
@@ -1955,8 +2114,8 @@ class ReplicationService implements ReplicationController {
     print("DECRYPT CLOUD DATA");
     try {
       Map<dynamic, dynamic> data = getPartialJsonString(event.content!);
-      toolbox_api.SearchCriteria criteria =
-          toolbox_api.SearchCriteria(searchPath: ':Keys', value: data['path']);
+      toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria(
+          searchPath: ':Keys', key: 'path', value: data['path']);
       List<toolbox_api.Node> keyList = await storageController.search(criteria);
 
       toolbox_api.Node keys = keyList[0];
@@ -1987,13 +2146,16 @@ class ReplicationService implements ReplicationController {
     print("ENCRYPT LOCAL NODE");
     String fullPath = node.path;
     String identifier = node.name;
-    toolbox_api.SearchCriteria criteria =
-        toolbox_api.SearchCriteria(searchPath: ':Keys', value: fullPath);
+    toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria(
+        searchPath: ':Keys', key: 'path', value: fullPath);
     List<toolbox_api.Node> keyList = await storageController.search(criteria);
     toolbox_api.Node? keys;
     if (keyList.isNotEmpty) {
+      print(keyList);
+
       /// SHOULD RETURN ONLY ONE NODE
       keys = keyList.first;
+      print(keys);
     } else {
       /// IF A PRE EXISTING KEY DOES NOT EXIST
       /// CREATE NEW ONE AND A NODE
@@ -2016,6 +2178,7 @@ class ReplicationService implements ReplicationController {
       Event keyEvent = Event(id_event: keyUUID, tlp: "AMBER");
       keyEvent.owner = _username;
       keyEvent.encoding = 'ascii';
+      keyEvent.type = 'keyvalue';
       keyEvent.content = json.encode(await convertNodeToJsonString(newKey));
       await cloud.createEvent(_username, keyEvent);
       keys = newKey;
@@ -2252,6 +2415,77 @@ class ReplicationService implements ReplicationController {
           print(e.toString());
         }
       }
+    }
+  }
+
+  /// EXPERIMENTAL NODES
+
+  Future<bool> createPairingStructure() async {
+    toolbox_api.Node local = await getNode(':Local');
+    String _localUser = await local
+        .getValue('currentUser')
+        .then((value) => value!.getValue("en").toString());
+    try {
+      // ignore: unused_local_variable
+      toolbox_api.Node entUs = await getNode(':Enterprise:Users');
+    } catch (e) {
+      toolbox_api.Node entUs =
+          toolbox_api.NodeImpl(':Enterprise:Users', pluginAPI);
+      toolbox_api.Visibility? checkerVisible =
+          toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerVisible != null) {
+        entUs.visibility = checkerVisible;
+      }
+      await storageController.add(entUs);
+    }
+    try {
+      // ignore: unused_local_variable
+      toolbox_api.Node entUsId = await getNode(':Enterprise:Users:$_localUser');
+    } catch (e) {
+      toolbox_api.Node entUsId =
+          toolbox_api.NodeImpl(':Enterprise:Users:$_localUser', pluginAPI);
+      toolbox_api.Visibility? checkerVisible =
+          toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerVisible != null) {
+        entUsId.visibility = checkerVisible;
+      }
+      await storageController.add(entUsId);
+    }
+    try {
+      // ignore: unused_local_variable
+      toolbox_api.Node structure =
+          await getNode(':Enterprise:Users:$_localUser:$pluginAPI');
+      return true;
+    } catch (e) {
+      print("PAIRING STRUCTURE NOT EXIST");
+      toolbox_api.Node structure = toolbox_api.NodeImpl(
+          ':Enterprise:Users:$_localUser:$pluginAPI', pluginAPI);
+      toolbox_api.Node data = toolbox_api.NodeImpl(
+          ':Enterprise:Users:$_localUser:$pluginAPI:data', pluginAPI);
+      toolbox_api.Visibility? checkerData =
+          toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerData != null) {
+        structure.visibility = checkerData;
+      }
+      data.addValue(toolbox_api.NodeValueImpl('username', ''));
+      data.addValue(toolbox_api.NodeValueImpl('sharedScore', ''));
+      data.addValue(toolbox_api.NodeValueImpl('sharedScoreDate', ''));
+      toolbox_api.Node config = toolbox_api.NodeImpl(
+          ':Enterprise:Users:$_localUser:$pluginAPI:config', pluginAPI);
+      toolbox_api.Visibility? checkerConfig =
+          toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerConfig != null) {
+        structure.visibility = checkerConfig;
+      }
+      config.addValue(toolbox_api.NodeValueImpl('supervisor', ''));
+      config.addValue(toolbox_api.NodeValueImpl('employees', ''));
+      toolbox_api.Visibility? checkerSt =
+          toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerSt != null) {
+        structure.visibility = checkerSt;
+      }
+      await storageController.add(structure);
+      return true;
     }
   }
 }

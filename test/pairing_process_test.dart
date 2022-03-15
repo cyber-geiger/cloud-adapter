@@ -6,28 +6,45 @@ import 'package:test/test.dart';
 void pairingTests() async {
   test('SIMPLE MULTIPLE PAIRING', () async {
     print('SIMPLE PAIRING');
-    GeigerApi localMaster =
-        (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
+    GeigerApi localMaster = (await getGeigerApi(
+        "", GeigerApi.masterId, Declaration.doNotShareData))!;
     // ignore: unused_local_variable
     toolbox_api.StorageController storageController = localMaster.getStorage()!;
-    toolbox_api.Node local = await storageController.get(':Local');
+    print(await storageController.dump());
+    /*toolbox_api.Node local = await storageController.get(':Local');
     print(local);
     print(await local.getChildren());
     toolbox_api.Node devices = await storageController.get(':Devices');
     print("PRE DEVICES NODE");
     print(devices);
     print("PRE DEVICE CHILDREN NODE");
-    print(await devices.getChildren());
+    Map<String, toolbox_api.Node> nodes1 = await devices.getChildren();
+    print(nodes1);
+    for(var node in nodes1.entries) {
+      toolbox_api.Node nn = (node.value);
+      print("CHILDREN OF NODE: " + nn.path);
+      print(await nn.getChildren());
+    }*/
 
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
-    await rep.setPair('4ed8fa47-857a-4b7a-a2b8-328107953668',
-        '3ceacb5d-e433-41a8-9b1b-a3079a988a2e', 'both');
-    toolbox_api.Node devices0 = await storageController.get(':Devices');
+    await rep.setPair('9b5eabad-631d-4051-a7f5-14eddc2094cf',
+        '76da1657-9199-4940-bf7a-123c28a974f4', 'both');
+    print(
+        "********************************* AFTER PAIRING *******************************************");
+    print(await storageController.dump());
+    /*toolbox_api.Node devices0 = await storageController.get(':Devices');
     print("POST DEVICES NODE");
     print(devices0);
     print("POST DEVICE CHILDREN NODE");
-    print(await devices0.getChildren());
+    Map<String, toolbox_api.Node> nodes = await devices0.getChildren();
+    print(nodes);
+    for(var node in nodes.entries) {
+      toolbox_api.Node nn = (node.value);
+      print("CHILDREN OF NODE: " + nn.path);
+      print(nn);
+      print(await nn.getChildren());
+    }*/
     await rep.endGeigerStorage();
   });
   /* test('SIMPLE MULTIPLE PAIRING', () async {
