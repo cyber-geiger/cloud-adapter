@@ -61,3 +61,49 @@ Includes:
 - Pairing Bugfixing
 - Updates :Keys SearchCriteria
 - Creates :Enterprise:Users:id:pairingStructure
+
+## 0.1.1 Handler Fix
+
+Includes:
+- Bugfix related to Listener Handlers
+
+## 0.1.2 :Keys Fix
+
+Includes:
+- Random UUID for :Keys
+
+## 0.1.3 Overriging Issue
+
+Includes:
+- Issue with updated nodes and children
+
+## 0.1.4 KEY Issue
+
+Includes:
+- Keys work with Search Criteria. In case of conflict -> Check the values inside the node
+
+## 0.1.5 KEY Issue
+
+Includes:
+- Keys work with Search Criteria. In case of conflict -> Check the values inside the node
+
+## 0.1.6 Listeners Improvement
+
+Includes:
+- Event listener were not working properly (replication & pairing issues) -> Solved.
+- When pairing plugin updates a toolbox node, it should not be replicated to the cloud (comes from it) -> Solved.
+- Full integrated tests:
+  1. Full Replication (Setting listeners but no usage)
+  2. Full Replication (Setting listeners and usage: CREATE; DELETE; UPDATE; RENAME)
+  3. Pairing (2 previous replicated users)
+  4. Pairing with listeners (Modifies nodes while Listeners are running & after pairing)
+
+## 0.1.7 Recommendations Improvement
+
+Includes:
+- Loop though Recommendations['Steps']
+
+## 0.1.8 Connection Issue
+
+Includes:
+- Improves REST API connection handling

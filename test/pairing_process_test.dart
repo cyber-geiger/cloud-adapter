@@ -28,8 +28,8 @@ void pairingTests() async {
 
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
-    await rep.setPair('9b5eabad-631d-4051-a7f5-14eddc2094cf',
-        '76da1657-9199-4940-bf7a-123c28a974f4', 'both');
+    await rep.setPair('61abff6b-1ab0-4c63-ac84-b949dcb2a992',
+        'cfd59e75-ce32-4099-8826-f9d7f4ccf2cd', 'both');
     print(
         "********************************* AFTER PAIRING *******************************************");
     print(await storageController.dump());
@@ -46,7 +46,7 @@ void pairingTests() async {
       print(await nn.getChildren());
     }*/
     await rep.endGeigerStorage();
-  });
+  }, timeout: Timeout(Duration(minutes: 5)));
   /* test('SIMPLE MULTIPLE PAIRING', () async {
     print('SIMPLE PAIRING');
     GeigerApi localMaster =

@@ -5,7 +5,7 @@ import 'package:cloud_replication_package/src/cloud_models/recommendation.dart';
 import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 import 'package:flutter/cupertino.dart';
 
-import 'package:http/http.dart' as http;
+//import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 import '../../cloud_models/event.dart';
@@ -19,6 +19,10 @@ import '../../cloud_models/threats.dart';
 
 class CloudService {
   final String uri = "https://37.48.101.252:8443/geiger-cloud/api";
+
+  HttpClient client1 = HttpClient()
+    ..badCertificateCallback =
+        ((X509Certificate cert, String host, int port) => true);
 
   CloudService() {
     WidgetsFlutterBinding.ensureInitialized();
@@ -41,10 +45,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.post(
         url,
         headers: <String, String>{
@@ -54,10 +58,12 @@ class CloudService {
         body: jsonEncode(event.toJson()),
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
+        //client.close();
         print("EVENT CREATED");
       } else {
         print("SOMETHING WENT WRONG: " + response.statusCode.toString());
         print(response.body);
+        //client.close();
         throw Exception(response.body.toString());
       }
     } catch (e) {
@@ -79,10 +85,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.put(
         url,
         headers: <String, String>{
@@ -94,6 +100,7 @@ class CloudService {
       if (response.statusCode == 200) {
         print("event updated");
       }
+      //client.close();
       print('USER EVENT UPDATED');
     } catch (e) {
       print('SOME EXCEPTION OCCURED');
@@ -115,10 +122,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -129,8 +136,10 @@ class CloudService {
         print('RESPONSE OK');
         List<dynamic> object = jsonDecode(response.body);
         List<Event> allEvents = object.map((e) => Event.fromJson(e)).toList();
+        //client.close();
         return allEvents;
       } else {
+        //client.close();
         throw Exception;
       }
     } catch (e) {
@@ -154,10 +163,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -170,8 +179,10 @@ class CloudService {
         print('RESPONSE OK');
         List<dynamic> object = jsonDecode(response.body);
         List<Event> allEvents = object.map((e) => Event.fromJson(e)).toList();
+        //client.close();
         return allEvents;
       } else {
+        //client.close();
         throw Exception;
       }
     } catch (e) {
@@ -184,6 +195,7 @@ class CloudService {
   //GET LIST OF USER EVENTS
   Future<List<String>> getUserEvents(String userId) async {
     try {
+      await Future.delayed(Duration(seconds: 5));
       print('GET USER EVENT LIST');
       final String eventUri = '/store/user/$userId/event';
       Uri url = Uri.parse(uri + eventUri);
@@ -194,10 +206,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -218,8 +230,10 @@ class CloudService {
         } else {
           allEvents = [];
         }
+        //client.close();
         return allEvents;
       } else {
+        //client.close();
         throw Exception;
       }
     } catch (e) {
@@ -245,10 +259,10 @@ class CloudService {
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
       print(fromTimestamp);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -260,8 +274,10 @@ class CloudService {
       if (response.statusCode == 200) {
         List<dynamic> object = jsonDecode(response.body);
         List<String> allEvents = object.map((e) => e.toString()).toList();
+        //client.close();
         return allEvents;
       } else {
+        //client.close();
         throw Exception;
       }
     } catch (e) {
@@ -284,10 +300,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -299,8 +315,10 @@ class CloudService {
         print('RESPONSE OK');
         //var object = json.decode(response.body);
         var object = jsonDecode(response.body);
+        //client.close();
         return Event.fromJson(object);
       } else {
+        //client.close();
         throw CloudException(
             "Exception getting the event from the cloud. Status code: " +
                 response.statusCode.toString());
@@ -324,16 +342,17 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.delete(
         url,
         headers: <String, String>{
           'accept': '*/*',
         },
       );
+      //client.close();
       if (response.statusCode != 200) {
         throw CloudException("Exception removing the event. Status code: " +
             response.statusCode.toString());
@@ -360,15 +379,15 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
-      http.Response response =
-          await ioClient.get(url, headers: <String, String>{
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
+      final response = await ioClient.get(url, headers: <String, String>{
         'accept': 'application/json',
         'content-type': 'application/json',
       });
+      //client.close();
       if (response.statusCode == 200) {
         print('USER EXISTS');
         return true;
@@ -399,15 +418,15 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
-      http.Response response =
-          await ioClient.get(url, headers: <String, String>{
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
+      final response = await ioClient.get(url, headers: <String, String>{
         'accept': 'application/json',
         'content-type': 'application/json',
       });
+      //client.close();
       if (response.statusCode == 200) {
         print('USER EXISTS');
         var object = jsonDecode(response.body);
@@ -455,10 +474,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.post(
         url,
         headers: <String, String>{
@@ -467,6 +486,7 @@ class CloudService {
         },
         body: jsonEncode(body),
       );
+      //client.close();
       if (response.statusCode == 200) {
         print("USER CREATED");
       } else {
@@ -494,17 +514,18 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
-      http.Response response = await ioClient.get(
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
+      final response = await ioClient.get(
         url,
         headers: <String, String>{
           'Content-Type': 'application/json',
           'accept': 'application/json',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         List<dynamic> object = jsonDecode(response.body);
@@ -542,16 +563,17 @@ class CloudService {
       //password: pass);
       Uri url = Uri.parse(uri + userUri);
       print(url.toString());
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.post(
         url,
         headers: <String, String>{
           'accept': '*/*',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print("USER MERGED");
       } else {
@@ -578,16 +600,17 @@ class CloudService {
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
       print(url);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
           'accept': 'application/json',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         List<String> allMerged = [];
@@ -625,10 +648,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -636,6 +659,7 @@ class CloudService {
           'content-type': 'application/json',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         //var object = json.decode(response.body);
@@ -665,16 +689,17 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.delete(
         url,
         headers: <String, String>{
           'accept': '*/*',
         },
       );
+      //client.close();
       if (response.statusCode != 200) {
         throw CloudException(
             "Error deleting agreement from cloud. Status code: " +
@@ -703,10 +728,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -714,6 +739,7 @@ class CloudService {
           'content-type': 'application/json',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         //var object = json.decode(response.body);
@@ -740,10 +766,10 @@ class CloudService {
       final String threatUri = '/threats';
       Uri url = Uri.parse(uri + threatUri);
       print(url);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -751,6 +777,7 @@ class CloudService {
           'content-type': 'application/json',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         //var object = json.decode(response.body);
@@ -784,10 +811,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -795,6 +822,7 @@ class CloudService {
           'content-type': 'application/json',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         //var object = json.decode(response.body);
@@ -828,10 +856,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -839,6 +867,7 @@ class CloudService {
           'content-type': 'application/json',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         //var object = json.decode(response.body);
@@ -870,10 +899,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -881,6 +910,7 @@ class CloudService {
           'content-type': 'application/json',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         List<String> allEvents = [];
@@ -918,10 +948,10 @@ class CloudService {
       //password: pass);
       //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
       //password: pass);
-      HttpClient client = HttpClient() //context: context)
-        ..badCertificateCallback =
-            ((X509Certificate cert, String host, int port) => true);
-      var ioClient = IOClient(client);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
       final response = await ioClient.get(
         url,
         headers: <String, String>{
@@ -929,6 +959,7 @@ class CloudService {
           'content-type': 'application/json',
         },
       );
+      //client.close();
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         //var object = json.decode(response.body);
@@ -961,14 +992,15 @@ class CloudService {
     //password: pass);
     //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
     //password: pass);
-    HttpClient client = HttpClient() //context: context)
-      ..badCertificateCallback =
-          ((X509Certificate cert, String host, int port) => true);
-    var ioClient = IOClient(client);
-    http.Response response =
-        await ioClient.get(url, headers: <String, String>{'accept': ''});
+    //HttpClient client = HttpClient() //context: context)
+    //..badCertificateCallback =
+    //((X509Certificate cert, String host, int port)=> true);
+    var ioClient = IOClient(client1);
+    final response = await ioClient
+        .get(url, headers: <String, String>{'accept': 'text/plain'});
+    //client.close();
     if (response.statusCode == 200) {
-      String uuid = jsonDecode(response.body).toString();
+      String uuid = (response.body).toString();
       return uuid;
     } else {
       throw CloudException("FAILURE GETTING A UUID");

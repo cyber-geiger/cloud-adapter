@@ -1,6 +1,6 @@
 name: cloud_replication_package
 description: This package contains all the methods to allow pairing & replication for GEIGER Project.
-version: 0.1.0
+version: 0.1.8
 homepage: https://github.com/cyber-geiger/toolbox-replication
 
 environment:

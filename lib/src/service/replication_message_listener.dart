@@ -1,22 +1,22 @@
 import 'package:geiger_api/geiger_api.dart';
 
-class EventListener implements PluginListener {
+class ReplicationMessageListener implements PluginListener {
   int numberReceivedMessages = 0;
   int numberHandledMessages = 0;
   List<Message> events = [];
   Map<MessageType, Function> messageHandler = {};
   final String _id;
 
-  EventListener(this._id);
+  ReplicationMessageListener(this._id);
 
   @override
-  void pluginEvent(GeigerUrl? url, Message msg) {
+  void pluginEvent(GeigerUrl? url, Message msg) async {
     events.add(msg);
     numberReceivedMessages++;
     Function? handler = messageHandler[msg.type];
     if (handler != null) {
       numberHandledMessages++;
-      handler(msg);
+      await handler(msg);
     } else {
       print('Eventlistener $_id does not handle message type ${msg.type}');
     }

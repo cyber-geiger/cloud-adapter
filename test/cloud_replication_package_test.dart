@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:cloud_replication_package/cloud_replication_package.dart';
 import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
@@ -141,6 +140,15 @@ void replicationTests() async {
     for (var entry in n1.entries) {
       toolbox_api.Node n = await storageController.get(entry.value.path);
       print(n);
+
+      /// try to get recommendation steps
+      var steps = await n
+          .getValue('Steps')
+          .then((value) => value!.getValue("en").toString());
+      var result = json.decode(steps);
+      for (var e in result) {
+        print(e);
+      }
     }
   }, timeout: Timeout(Duration(minutes: 5)));
   test('STORAGE LISTENER - LAST NODE UPDATED', () async {
