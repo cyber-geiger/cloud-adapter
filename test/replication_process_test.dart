@@ -12,7 +12,7 @@ Future<toolbox_api.StorageController> initGeigerStorage() async {
   try {
     GeigerApi api = await _initGeigerApi();
     print(api);
-    toolbox_api.StorageController storageController = api.getStorage()!;
+    toolbox_api.StorageController storageController = api.storage;
     return storageController;
   } catch (e) {
     print("DATABASE CONNECTION ERROR FROM LOCALSTORAGE");

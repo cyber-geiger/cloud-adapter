@@ -989,7 +989,7 @@ class ReplicationService implements ReplicationController {
     try {
       GeigerApi api = await _initGeigerApi();
       print(api);
-      _storageController = api.getStorage()!;
+      _storageController = api.storage;
       print(_storageController);
     } catch (e) {
       print("DATABASE CONNECTION ERROR FROM LOCALSTORAGE");
@@ -1040,9 +1040,9 @@ class ReplicationService implements ReplicationController {
       try {
         // await _pluginAPI!
         //     .registerListener(handledEvents, pluginListener!); // This should be correct one
-        await _localMaster
+        _localMaster
             .registerListener([MessageType.allEvents], _messageListener!);
-        await _localMaster
+        _localMaster
             .registerListener([MessageType.registerPlugin], _messageListener!);
         print(
             'External Plugin ${_messageListener!.hashCode} has been registered and activated');

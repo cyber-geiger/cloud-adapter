@@ -107,3 +107,13 @@ Includes:
 
 Includes:
 - Improves REST API connection handling
+
+## 0.1.9 GEIGER API UPGRADE
+
+Includes:
+- Improves REST API connection handling
+
+## 0.1.10 GEIGER API UPGRADE v2
+
+Includes:
+- Solves Geiger API 0.7.5

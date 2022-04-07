@@ -61,7 +61,7 @@ Future<toolbox_api.StorageController> initGeigerStorage() async {
   try {
     GeigerApi api = await _initGeigerApi();
     print(api);
-    toolbox_api.StorageController storageController = api.getStorage()!;
+    toolbox_api.StorageController storageController = api.storage;
     return storageController;
   } catch (e) {
     print("DATABASE CONNECTION ERROR FROM LOCALSTORAGE");
@@ -116,7 +116,7 @@ void replicationTests() async {
     GeigerApi localMaster = (await getGeigerApi(
         "", GeigerApi.masterId, Declaration.doNotShareData))!;
     // ignore: unused_local_variable
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
     toolbox_api.Node profile = await storageController.get(":Global:profiles");
     print("PROFILE NODE");
     print(profile);
@@ -156,7 +156,7 @@ void replicationTests() async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     // ignore: unused_local_variable
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
     toolbox_api.SearchCriteria sc = toolbox_api.SearchCriteria(searchPath: ':');
     NodeListener stListener = NodeListener();
     storageController.registerChangeListener(stListener, sc);
@@ -177,7 +177,7 @@ void replicationTests() async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     // ignore: unused_local_variable
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
     toolbox_api.SearchCriteria sc = toolbox_api.SearchCriteria(searchPath: ':');
     toolbox_api.Node demoExample11 =
         toolbox_api.NodeImpl(':Local:DemoExampleTest', 'CloudAdapter');
@@ -199,7 +199,7 @@ void replicationTests() async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     // ignore: unused_local_variable
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
     toolbox_api.SearchCriteria sc = toolbox_api.SearchCriteria(searchPath: ':');
     toolbox_api.Node demoExample11 =
         toolbox_api.NodeImpl(':Local:DemoExampleTest', 'CloudAdapter');
@@ -226,7 +226,7 @@ void replicationTests() async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
     // ignore: unused_local_variable
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
 
     /// SEND MESSAGE
     GeigerUrl? url;
@@ -247,7 +247,7 @@ void replicationTests() async {
   /*test("SEARCH CRITERIA", () async {
     GeigerApi localMaster =
         (await getGeigerApi("", GeigerApi.masterId, Declaration.doShareData))!;
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
     //toolbox_api.Node n = toolbox_api.NodeImpl(":Local:demo1", "checker");
     //await storageController.add(n);
     //toolbox_api.Node m = toolbox_api.NodeImpl(":Devices:demo1", "checker");

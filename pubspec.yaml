@@ -1,6 +1,6 @@
 name: cloud_replication_package
 description: This package contains all the methods to allow pairing & replication for GEIGER Project.
-version: 0.1.8
+version: 0.1.10
 homepage: https://github.com/cyber-geiger/toolbox-replication
 
 environment:
@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   geiger_localstorage: ^0.6.39
-  geiger_api: ^0.7.2
+  geiger_api: ^0.7.5
   #sqlite3_flutter_libs: ^0.5.1
   #sqlite3: ^1.2.0
   http: ^0.13.4

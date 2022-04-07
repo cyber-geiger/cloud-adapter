@@ -9,7 +9,7 @@ void pairingTests() async {
     GeigerApi localMaster = (await getGeigerApi(
         "", GeigerApi.masterId, Declaration.doNotShareData))!;
     // ignore: unused_local_variable
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
     print(await storageController.dump());
     /*toolbox_api.Node local = await storageController.get(':Local');
     print(local);
