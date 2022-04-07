@@ -41,7 +41,7 @@ void replicationTests() async {
         rep.renameHanlder, rep.updateHanlder);
     GeigerApi localMaster = (await getGeigerApi(
         "demo-plugin", GeigerApi.masterId, Declaration.doNotShareData))!;
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
     toolbox_api.Node local = await storageController.get(':Local');
     String _localUser = await local
         .getValue('currentUser')
@@ -67,7 +67,7 @@ void replicationTests() async {
         rep.renameHanlder, rep.updateHanlder);
     GeigerApi localMaster = (await getGeigerApi(
         "demo-plugin", GeigerApi.masterId, Declaration.doNotShareData))!;
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
     toolbox_api.Node local = await storageController.get(':Local');
     String _localUser = await local
         .getValue('currentUser')
@@ -104,7 +104,7 @@ void replicationTests() async {
     await rep.initGeigerStorage();
     GeigerApi localMaster = (await getGeigerApi(
         "demo-plugin", GeigerApi.masterId, Declaration.doNotShareData))!;
-    toolbox_api.StorageController storageController = localMaster.getStorage()!;
+    toolbox_api.StorageController storageController = localMaster.storage;
     await rep.geigerReplication(rep.deleteHandler, rep.createHandler,
         rep.renameHanlder, rep.updateHanlder);
 

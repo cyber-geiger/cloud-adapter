@@ -28,8 +28,8 @@ void pairingTests() async {
 
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
-    await rep.setPair('61abff6b-1ab0-4c63-ac84-b949dcb2a992',
-        'cfd59e75-ce32-4099-8826-f9d7f4ccf2cd', 'both');
+    await rep.setPair('b9fc801e-59fc-4672-8638-7c4717034172',
+        'd73f9d07-ffc0-4878-be74-89f1d05d7a5d', 'both');
     print(
         "********************************* AFTER PAIRING *******************************************");
     print(await storageController.dump());

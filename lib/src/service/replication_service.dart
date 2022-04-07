@@ -2431,31 +2431,49 @@ class ReplicationService implements ReplicationController {
     print("DECRYPT CLOUD DATA");
     try {
       Map<dynamic, dynamic> data = getPartialJsonString(event.content!);
+      print(data);
       toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria(
           searchPath: ':Keys', key: 'path', value: data['path']);
       List<toolbox_api.Node> keyList =
           await _storageController.search(criteria);
+      toolbox_api.Node? keys;
+      for (var entry in keyList) {
+        String comparePath = await entry
+            .getValue('path')
+            .then((value) => value!.getValue("en").toString());
+        if (comparePath == data['path']) {
+          keys = entry;
+          break;
+        }
+      }
+      print("KEY NODE GENERATED");
 
-      toolbox_api.Node keys = keyList[0];
-      final hexEncodedKey = await keys
-          .getValue('key')
-          .then((value) => value!.getValue("en").toString());
+      if (keyList.isNotEmpty) {
+        final hexEncodedKey = await keys!
+            .getValue('key')
+            .then((value) => value!.getValue("en").toString());
 
-      /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
-      final onlyKey = hexEncodedKey.split(':');
-      final String decodedKey = (onlyKey[1]).toString();
-      final keyVal = Enc.Key.fromBase64(decodedKey);
-      final iv = Enc.IV.fromLength(16);
-      final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
-      //DECRYPT DATA
-      Map<dynamic, dynamic> jsonify = jsonDecode(event.content!);
-      String decrypted = enc.decrypt(
-          Enc.Encrypted.fromBase64(jsonify['custom_fields'].toString()),
-          iv: iv);
-      jsonify['custom_fields'] = decrypted;
-      return jsonify;
+        /// keyPattern: key=["aes-256-cfb:JWWY+/E5Xppta3AsSIsGrWUOKHmv0w3cbfH5VlsG62Y="]
+        final onlyKey = hexEncodedKey.split(':');
+        final String decodedKey = (onlyKey[1]).toString();
+        final keyVal = Enc.Key.fromBase64(decodedKey);
+        final iv = Enc.IV.fromLength(16);
+        final enc = Enc.Encrypter(Enc.AES(keyVal, mode: Enc.AESMode.cfb64));
+        //DECRYPT DATA
+        Map<dynamic, dynamic> jsonify = jsonDecode(event.content!);
+        print(jsonify['custom_fields']);
+        print(jsonify['custom_fields'].toString());
+        String decrypted = enc.decrypt(
+            Enc.Encrypted.fromBase64(jsonify['custom_fields']),
+            iv: iv);
+        jsonify['custom_fields'] = decrypted;
+        return jsonify;
+      } else {
+        throw ReplicationException("NO KEYS FOUND");
+      }
     } catch (e) {
-      print("DECRYPT CLOUD DATA");
+      print("DECRYPT CLOUD DATA EXCEPTION");
+      print(e);
       throw ReplicationException(e.toString());
     }
   }
@@ -2468,11 +2486,15 @@ class ReplicationService implements ReplicationController {
     List<toolbox_api.Node> keyList = await _storageController.search(criteria);
     toolbox_api.Node? keys;
     if (keyList.isNotEmpty) {
-      print(keyList);
-
-      /// SHOULD RETURN ONLY ONE NODE
-      keys = keyList.first;
-      print(keys);
+      for (var entry in keyList) {
+        String comparePath = await entry
+            .getValue('path')
+            .then((value) => value!.getValue("en").toString());
+        if (comparePath == fullPath) {
+          keys = entry;
+          break;
+        }
+      }
     } else {
       /// IF A PRE EXISTING KEY DOES NOT EXIST
       /// CREATE NEW ONE AND A NODE
@@ -2508,7 +2530,7 @@ class ReplicationService implements ReplicationController {
         cloudNodePath.add(json.decode(keyEvent.content!)['path']);
       }
     }
-    final hexEncodedKey = await keys
+    final hexEncodedKey = await keys!
         .getValue('key')
         .then((value) => value!.getValue("en").toString());
 
@@ -2534,11 +2556,15 @@ class ReplicationService implements ReplicationController {
     List<toolbox_api.Node> keyList = await _storageController.search(criteria);
     toolbox_api.Node? keys;
     if (keyList.isNotEmpty) {
-      print(keyList);
-
-      /// SHOULD RETURN ONLY ONE NODE
-      keys = keyList.first;
-      print(keys);
+      for (var entry in keyList) {
+        String comparePath = await entry
+            .getValue('path')
+            .then((value) => value!.getValue("en").toString());
+        if (comparePath == fullPath) {
+          keys = entry;
+          break;
+        }
+      }
     } else {
       /// IF A PRE EXISTING KEY DOES NOT EXIST
       /// CREATE NEW ONE AND A NODE
@@ -2561,7 +2587,7 @@ class ReplicationService implements ReplicationController {
       await _storageController.add(newKey);
       keys = newKey;
     }
-    final hexEncodedKey = await keys
+    final hexEncodedKey = await keys!
         .getValue('key')
         .then((value) => value!.getValue("en").toString());
 

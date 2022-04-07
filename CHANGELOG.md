@@ -117,3 +117,13 @@ Includes:
 
 Includes:
 - Solves Geiger API 0.7.5
+
+## 0.1.11 Update Search Criteria
+
+Includes:
+- Upgrade SearchCriteria
+
+## 0.1.12 Static Analylis
+
+Includes:
+- flutter format to match criteria
