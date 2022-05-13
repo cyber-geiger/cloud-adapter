@@ -137,7 +137,8 @@ class ReplicationService implements ReplicationController {
   @override
   Future<bool> geigerReplication(
       deleteHandler, createHandler, updateHandler, renameHandler) async {
-    print(__debugLine + 'STARTING GEIGER REPLICATION');
+    final enable_encryption = false;
+    print(__debugLine + 'STARTING GEIGER REPLICATION REGULAR WITH GLOBAL');
 
     /// Follow diagram
     /// 3 steps replication
@@ -211,11 +212,11 @@ class ReplicationService implements ReplicationController {
 
     /// CLOUD TO LOCAL REPLICATION
     print("[2nd FLOW] - CLOUD TO LOCAL");
-    await cloudToLocalReplication(_username, _actual, _fromDate, _fullRep);
+    await cloudToLocalReplication(_username, _actual, _fromDate, _fullRep, enable_encryption: enable_encryption);
 
     /// LOCAL TO CLOUD REPLICATION
     print("[3rd FLOW] - LOCAL TO CLOUD");
-    await localToCloudReplication(_username, _actual, _fromDate, _fullRep);
+    await localToCloudReplication(_username, _actual, _fromDate, _fullRep, enable_encryption: enable_encryption);
 
     /// UPDATE WHEN LAST REPLICATION TOOK PLACE
     print("[4th FLOW] - UPDATE WHEN LAST REPLICAION TOOK PLACE");
@@ -252,8 +253,8 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<void> cloudToLocalReplication(String _username, DateTime _actual,
-      DateTime _fromDate, bool _fullRep) async {
-    print("CLOUD TO LOCAL REPLICATION");
+      DateTime _fromDate, bool _fullRep, {bool enable_encryption= false}) async {
+    print("CLOUD TO LOCAL REPLICATION - Function cloudToLocalReplication");
 
     /// WITH DATETIME TAKE EVENTS FROM THE CLOUD
     List<String> events;
@@ -300,30 +301,48 @@ class ReplicationService implements ReplicationController {
       String owner = singleOne.owner.toString();
       if (owner != _username) {
         if (type.toLowerCase() == "keyvalue") {
-          print('CLOUD TO LOCAL REPLICATION - NO E2EE');
+          print('CLOUD TO LOCAL REPLICATION - NO E2EE - FUNCTION cloudToLocalReplication');
           toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
           await updateLocalNodeWithCloudNode(node, _username);
         }
         if (type.toLowerCase() == "user_object") {
-          print('CLOUD TO LOCAL REPLICATION - E2EE');
-          try {
-            Map<dynamic, dynamic> jsonify = await decryptCloudData(singleOne);
-            singleOne.setContent = jsonEncode(jsonify);
-            toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
-            await checkParents(node.path);
-            await updateLocalNodeWithCloudNode(node, _username);
-          } catch (e) {
-            print(e);
+          if (enable_encryption) {
+            print(
+                'CLOUD TO LOCAL REPLICATION - E2EE - FUNCTION cloudToLocalReplication');
+            try {
+              Map<dynamic, dynamic> jsonify = await decryptCloudData(singleOne);
+              singleOne.setContent = jsonEncode(jsonify);
+              toolbox_api.Node node = convertJsonStringToNode(
+                  singleOne.content!);
+              await checkParents(node.path);
+              await updateLocalNodeWithCloudNode(node, _username);
+            } catch (e) {
+              print(e);
 
-            /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
-            waitingEvents.add(singleOne);
-            print('FAILURE GETTING KEYS FOR NODE: $id');
+              /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
+              waitingEvents.add(singleOne);
+              print(
+                  'FAILURE GETTING KEYS FOR NODE - FUNCTION cloudToLocalReplication: $id');
+            }
+          }
+          else{
+            try {
+              print(
+                  'CLOUD TO LOCAL REPLICATION - NO ENCRYPTION ENABLED - FUNCTION cloudToLocalReplication');
+              toolbox_api.Node node = convertJsonStringToNode(
+                  singleOne.content!);
+              await checkParents(node.path);
+              await updateLocalNodeWithCloudNode(node, _username);
+            } catch (e){
+              print("ERROR WITHIN FUNCTION cloudToLocalReplication LINE 328: "+e.toString());
+              waitingEvents.add(singleOne);
+            }
           }
         }
       }
     }
 
-    print("WAITING EVENTS");
+    print("WAITING EVENTS - FUNCTION cloudToLocalReplication");
     for (var waiting in waitingEvents) {
       String waitingId = waiting.id_event.toString();
       try {
@@ -337,12 +356,12 @@ class ReplicationService implements ReplicationController {
         await updateLocalNodeWithCloudNode(node, _username);
       } catch (e) {
         print(e);
-        print('FAILURE GETTING KEYS FOR NODE: $waitingId');
+        print('FAILURE GETTING KEYS FOR NODE - FUNCTION cloudToLocalReplication: $waitingId');
         try {
           toolbox_api.Node node = convertJsonStringToNode(waiting.content!);
           await updateLocalNodeWithCloudNode(node, _username);
         } catch (e) {
-          print("GET SHARED NODES FAILURE");
+          print("GET SHARED NODES FAILURE - FUNCTION cloudToLocalReplication");
           print(e.toString());
         }
       }
@@ -352,8 +371,8 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<void> localToCloudReplication(String _username, DateTime _actual,
-      DateTime _fromDate, bool _fullRep) async {
-    print("REPLICATION - LOCAL TO CLOUD NODES REPLICATION");
+      DateTime _fromDate, bool _fullRep, {bool enable_encryption= false}) async {
+    print("REPLICATION - LOCAL TO CLOUD NODES REPLICATION - FUNCTION localToCloudReplication");
 
     /// START OF THE SECOND DIAGRAM
     /// START CLEANING DATA AND REMOVING TOMBSTONES
@@ -435,17 +454,23 @@ class ReplicationService implements ReplicationController {
             sorted.tombstone == false) {
           if (tlp.toLowerCase() == 'red') {
             print("TLP:RED NODE");
-            try {
-              Map<dynamic, dynamic> convertedNode =
-                  await encryptCloudData(sorted);
-              toCheck.content = json.encode(convertedNode);
-            } catch (e) {
-              print(e);
-              toCheck.content =
-                  json.encode(await convertNodeToJsonString(sorted));
-              print('FAILURE GETTING KEYS');
+            if(enable_encryption) {
+              try {
+                Map<dynamic, dynamic> convertedNode =
+                await encryptCloudData(sorted);
+                toCheck.content = json.encode(convertedNode);
+              } catch (e) {
+                print(e);
+                toCheck.content =
+                    json.encode(await convertNodeToJsonString(sorted));
+                print('FAILURE GETTING KEYS');
+              }
+              toCheck.type = 'user_object';
             }
-            toCheck.type = 'user_object';
+            else{
+              toCheck.type = 'user_object';
+              toCheck.content = json.encode(await convertNodeToJsonString(sorted));
+            }
           } else {
             toCheck.type = 'keyvalue';
             toCheck.content =
@@ -514,7 +539,7 @@ class ReplicationService implements ReplicationController {
     /// Check if both users in the cloud
     /// second (remote) user should be created from the others device
     bool user1Exists = await cloud.userExists(userId1);
-    if (user1Exists == false) {
+    if (!user1Exists) {
       /// CHECK IF LOCALLY WE DO HAVE MORE DATA
       await cloud.createUser(userId1);
     }
@@ -796,7 +821,7 @@ class ReplicationService implements ReplicationController {
     /// cloud API retrieves also the shared ones
     /// check the Event owner to differenciate
     try {
-      print("GET SHARED NODES BETWEEN TWO PAIRED USER/DEVICE");
+      print("GET SHARED NODES BETWEEN TWO PAIRED USER/DEVICE - FUNCTION getSharedNodes");
       toolbox_api.Node node = await getNode(':Local:Pairing:$senderUserId');
       String encryptedKey = await node
           .getValue('key')
@@ -824,7 +849,7 @@ class ReplicationService implements ReplicationController {
                     encryptedKey.split(':')[1] as Enc.Encrypted,
                     iv: iv);
               } catch (e) {
-                print("ISSUE ENCRYPTING DATA");
+                print("ISSUE ENCRYPTING DATA - FUNCTION getSharedNodes");
                 encryptedKey = publicKey;
               }
             }
@@ -833,9 +858,9 @@ class ReplicationService implements ReplicationController {
             List<String> allEvents = await cloud.getUserEvents(receiverUserId);
             List<Event> waitingEvents = [];
 
-            print("GET USER SHARED EVENTS");
+            print("GET USER SHARED EVENTS - FUNCTION getSharedNodes");
             for (var event in allEvents) {
-              print("STARTING SHARED EVENTS");
+              print("STARTING SHARED EVENTS - FUNCTION getSharedNodes");
               Event newEvent =
                   await cloud.getSingleUserEvent(receiverUserId, event);
               var owner = newEvent.getOwner;
@@ -844,7 +869,7 @@ class ReplicationService implements ReplicationController {
               if (owner != receiverUserId) {
                 if (newEvent.content != null) {
                   if (type!.toLowerCase() == "keyvalue") {
-                    print('CLOUD TO LOCAL REPLICATION - NO E2EE');
+                    print('CLOUD TO LOCAL REPLICATION - NO E2EE - FUNCTION getSharedNodes');
                     toolbox_api.Node node =
                         convertJsonStringToNode(newEvent.content!);
                     await checkParents(node.path);
@@ -856,12 +881,12 @@ class ReplicationService implements ReplicationController {
                     for (var entry in nodeData.entries) {
                       pairedNode.addOrUpdateValue(entry.value);
                     }
-                    print("[PAIRING 1] NODE TO BE UPDATED");
+                    print("[PAIRING 1] NODE TO BE UPDATED - FUNCTION getSharedNodes");
                     print(pairedNode);
                     await updateLocalNodeWithCloudNode(pairedNode, _pluginAPI);
                   }
                   if (type.toLowerCase() == "user_object") {
-                    print('CLOUD TO LOCAL REPLICATION - E2EE');
+                    print('CLOUD TO LOCAL REPLICATION - E2EE - FUNCTION getSharedNodes');
                     //GET KEYS
                     try {
                       ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
@@ -881,28 +906,28 @@ class ReplicationService implements ReplicationController {
                       for (var entry in nodeData.entries) {
                         pairedNode.addOrUpdateValue(entry.value);
                       }
-                      print("[PAIRING 2] NODE TO BE UPDATED");
+                      print("[PAIRING 2] NODE TO BE UPDATED - FUNCTION getSharedNodes");
                       print(pairedNode);
                       await updateLocalNodeWithCloudNode(
                           pairedNode, _pluginAPI);
                     } catch (e) {
                       /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
                       waitingEvents.add(newEvent);
-                      print('FAILURE GETTING KEYS FOR NODE: $id');
+                      print('FAILURE GETTING KEYS FOR NODE - FUNCTION getSharedNodes: $id');
                       print(newEvent);
                     }
                   }
                 }
               } else {
-                print("THE OWNER OF THE SHARED NODE IS: " + owner!);
+                print("THE OWNER OF THE SHARED NODE IS - FUNCTION getSharedNodes: " + owner!);
               }
             }
             for (var waiting in waitingEvents) {
-              print("STARTING WAITING EVENTS");
+              print("STARTING WAITING EVENTS - FUNCTION getSharedNodes");
               String waitingId = waiting.id_event.toString();
               var owner = waiting.getOwner;
               if (owner != receiverUserId) {
-                print("WAITING EVENT: $waitingId");
+                print("WAITING EVENT - FUNCTION getSharedNodes: $waitingId");
                 try {
                   ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
                   ///ELSE CREATE A NODE WITH VISIBILITY AMBER
@@ -921,12 +946,12 @@ class ReplicationService implements ReplicationController {
                   for (var entry in nodeData.entries) {
                     pairedNode.addOrUpdateValue(entry.value);
                   }
-                  print("[PAIRING 3] NODE TO BE UPDATED");
+                  print("[PAIRING 3] NODE TO BE UPDATED - FUNCTION getSharedNodes");
                   print(pairedNode);
                   await updateLocalNodeWithCloudNode(pairedNode, _pluginAPI);
                 } catch (e) {
                   print(
-                      'WAITING EVENTS - FAILURE GETTING KEYS FOR NODE: $waitingId');
+                      'WAITING EVENTS - FAILURE GETTING KEYS FOR NODE - FUNCTION getSharedNodes: $waitingId');
                   try {
                     toolbox_api.Node node =
                         convertJsonStringToNode(waiting.content!);
@@ -939,11 +964,11 @@ class ReplicationService implements ReplicationController {
                     for (var entry in nodeData.entries) {
                       pairedNode.addOrUpdateValue(entry.value);
                     }
-                    print("[PAIRING 4] NODE TO BE UPDATED");
+                    print("[PAIRING 4] NODE TO BE UPDATED - FUNCTION getSharedNodes");
                     print(pairedNode);
                     await updateLocalNodeWithCloudNode(pairedNode, _pluginAPI);
                   } catch (e) {
-                    print("GET SHARED NODES FAILURE");
+                    print("GET SHARED NODES FAILURE - FUNCTION getSharedNodes");
                     print(e.toString());
                   }
                 }
@@ -992,7 +1017,7 @@ class ReplicationService implements ReplicationController {
       _storageController = api.storage;
       print(_storageController);
     } catch (e) {
-      print("DATABASE CONNECTION ERROR FROM LOCALSTORAGE");
+      print("DATABASE CONNECTION ERROR FROM LOCALSTORAGE: "+e.toString());
       rethrow;
     }
     print("END INIT GEIGER STORAGE");
@@ -1817,7 +1842,7 @@ class ReplicationService implements ReplicationController {
     return consent;*/
   }
 
-  /// if a user receives shared event but with different owner
+  /// if a user receives a shared event but with a different owner
   /// checks pairing
   Future<void> updatePairedEvent(String username, Event event) async {
     try {
@@ -2139,6 +2164,9 @@ class ReplicationService implements ReplicationController {
       deleteHandler, createHandler, updateHandler, renameHandler) async {
     try {
       userEvents = await cloud.getUserEvents(_username);
+      //List<toolbox_api.Node> nodeList = [];
+      //cloudEvents
+      //nodeList.addAll(await getAllNodes());
       for (var cloudEvent in userEvents) {
         try {
           Event newCloudEvent =
@@ -2467,6 +2495,15 @@ class ReplicationService implements ReplicationController {
             Enc.Encrypted.fromBase64(jsonify['custom_fields']),
             iv: iv);
         jsonify['custom_fields'] = decrypted;
+        print("********* FOR REVIEW PORPUSES *******");
+        print("********* DATA DECRYPTION FROM CLOUD TO DEVICE - FUNCTION decryptCloudData*******");
+        print("**************************** KEY VALUE ****************************");
+        print("keyVal: " + keyVal.toString());
+        print("**************************** END KEY VALUE ****************************");
+        print("**************************** DECRYPTED VALUE ****************************");
+        print(decrypted);
+        print("**************************** END DECRYPTED VALUE ****************************");
+        print("********* END FOR REVIEW PORPUSES *******");
         return jsonify;
       } else {
         throw ReplicationException("NO KEYS FOUND");
@@ -2656,10 +2693,13 @@ class ReplicationService implements ReplicationController {
     }
   }
 
+
+/*
+// TTBOMK Functions do not used within the GEIGER APP //
   @override
   Future<bool> geigerReplicationWithoutGlobalData(
       deleteHandler, createHandler, updateHandler, renameHandler) async {
-    print('STARTING GEIGER REPLICATION');
+    print('STARTING GEIGER REPLICATION WITHOUT GLOBAL DATA');
 
     /// Follow diagram
     /// 3 steps replication
@@ -2751,7 +2791,7 @@ class ReplicationService implements ReplicationController {
 
   Future<void> cloudToLocalReplicationWithoutGlobalData(String _username,
       DateTime _actual, DateTime _fromDate, bool _fullRep) async {
-    print("CLOUD TO LOCAL REPLICATION");
+    print("CLOUD TO LOCAL REPLICATION - FUNCTION WithoutGlobalData");
 
     /// WITH DATETIME TAKE EVENTS FROM THE CLOUD
     List<String> events;
@@ -2774,12 +2814,12 @@ class ReplicationService implements ReplicationController {
       //String owner = singleOne.owner.toString();
       //if (owner != _username) {
       if (type.toLowerCase() == "keyvalue") {
-        print('CLOUD TO LOCAL REPLICATION - NO E2EE');
+        print('CLOUD TO LOCAL REPLICATION - NO E2EE - FUNCTION WithoutGlobalData');
         toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
         await updateLocalNodeWithCloudNode(node, _username);
       }
       if (type.toLowerCase() == "user_object") {
-        print('CLOUD TO LOCAL REPLICATION - E2EE');
+        print('CLOUD TO LOCAL REPLICATION - E2EE - FUNCTION WithoutGlobalData');
         try {
           Map<dynamic, dynamic> jsonify = await decryptCloudData(singleOne);
           singleOne.setContent = jsonEncode(jsonify);
@@ -2791,12 +2831,12 @@ class ReplicationService implements ReplicationController {
 
           /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
           waitingEvents.add(singleOne);
-          print('FAILURE GETTING KEYS FOR NODE: $id');
+          print('FAILURE GETTING KEYS FOR NODE - FUNCTION WithoutGlobalData: $id');
         }
       }
     }
 
-    print("WAITING EVENTS");
+    print("WAITING EVENTS - FUNCTION WithoutGlobalData");
     for (var waiting in waitingEvents) {
       String waitingId = waiting.id_event.toString();
       try {
@@ -2810,17 +2850,19 @@ class ReplicationService implements ReplicationController {
         await updateLocalNodeWithCloudNode(node, _username);
       } catch (e) {
         print(e);
-        print('FAILURE GETTING KEYS FOR NODE: $waitingId');
+        print('FAILURE GETTING KEYS FOR NODE - FUNCTION WithoutGlobalData: $waitingId');
         try {
           toolbox_api.Node node = convertJsonStringToNode(waiting.content!);
           await updateLocalNodeWithCloudNode(node, _username);
         } catch (e) {
-          print("GET SHARED NODES FAILURE");
+          print("GET SHARED NODES FAILURE - FUNCTION WithoutGlobalData");
           print(e.toString());
         }
       }
     }
   }
+*/
+
 
   /// EXPERIMENTAL NODES
 

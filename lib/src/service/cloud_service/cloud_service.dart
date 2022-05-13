@@ -195,7 +195,7 @@ class CloudService {
   //GET LIST OF USER EVENTS
   Future<List<String>> getUserEvents(String userId) async {
     try {
-      await Future.delayed(Duration(seconds: 5));
+      //await Future.delayed(Duration(seconds: 5));
       print('GET USER EVENT LIST');
       final String eventUri = '/store/user/$userId/event';
       Uri url = Uri.parse(uri + eventUri);
@@ -708,6 +708,41 @@ class CloudService {
     } catch (e) {
       print(e);
       throw CloudException("Error deleting agreement from cloud.");
+    }
+  }
+
+  //DELETE USER INFORMATION - DEVELOPMENT PORPUSES
+  Future<void> deleteUser(String idUser1) async {
+    try {
+      print('DELETE USER INFORMATION');
+      final String eventUri = '/store/user/$idUser1';
+      Uri url = Uri.parse(uri + eventUri);
+      print(url);
+      //SecurityContext context = //SecurityContext.defaultContext;
+      //context.useCertificateChainBytes(
+      //asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
+      //context.usePrivateKeyBytes(//asset.readAsBytesSync().buffer.asUint8List(),
+      //password: pass);
+      //HttpClient client = HttpClient() //context: context)
+      //..badCertificateCallback =
+      //((X509Certificate cert, String host, int port)=> true);
+      var ioClient = IOClient(client1);
+      final response = await ioClient.delete(
+        url,
+        headers: <String, String>{
+          'accept': '*/*',
+        },
+      );
+      //client.close();
+      if (response.statusCode != 200) {
+        throw CloudException(
+            "Error deleting USER information from cloud. Status code: " +
+                response.body);
+      }
+    } catch (e) {
+      print(e);
+      throw CloudException("Error deleting user information from cloud.");
     }
   }
 
