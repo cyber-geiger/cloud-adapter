@@ -2181,17 +2181,19 @@ class ReplicationService implements ReplicationController {
             cloudNodePath.add(data['path']);
           } else {
             /// CHECK TIMESTAMP
-            int index = userEvents.indexOf(cloudEvent);
-            Event toCompare = cloudEvents[index];
-            DateTime? evToCompare = toCompare.last_modified;
-            DateTime? newTime = newCloudEvent.last_modified;
-            //AS IN CLOUD, COMPARE DATETIMES
-            Duration _diff = newTime!.difference(evToCompare!);
-            if (_diff.inDays > 0) {
-              userEvents[index] = cloudEvent;
-              cloudNodeList[index] = (data);
-              cloudNodePath[index] = (data['path']);
-              cloudEvents[index] = newCloudEvent;
+            if (!cloudEvents.isEmpty) {
+              int index = userEvents.indexOf(cloudEvent);
+              Event toCompare = cloudEvents[index];
+              DateTime? evToCompare = toCompare.last_modified;
+              DateTime? newTime = newCloudEvent.last_modified;
+              //AS IN CLOUD, COMPARE DATETIMES
+              Duration _diff = newTime!.difference(evToCompare!);
+              if (_diff.inDays > 0) {
+                userEvents[index] = cloudEvent;
+                cloudNodeList[index] = (data);
+                cloudNodePath[index] = (data['path']);
+                cloudEvents[index] = newCloudEvent;
+              }
             }
           }
         } catch (e) {

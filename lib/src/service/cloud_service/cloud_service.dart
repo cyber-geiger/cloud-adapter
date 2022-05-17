@@ -882,7 +882,8 @@ class CloudService {
       getSecurityDefendersOrganizations() async {
     try {
       print('GET SECURITY DEFENDERS ORGANIZATIONS');
-      final String secUri = '/recommendation';
+      //final String secUri = '/recommendation';
+      final String secUri = '/security-defenders-organizations';
       Uri url = Uri.parse(uri + secUri);
       print(url);
       //SecurityContext context = //SecurityContext.defaultContext;
