@@ -56,8 +56,8 @@ class ReplicationService implements ReplicationController {
 
   final String _pluginAPI = 'pairing_plugin';
   final String _replicationAPI = 'replication_plugin';
-
   final String __debugLine = '[REPLICATION SERVICE] ';
+  final String _enterpriseUsers = ":Enterprise:Users";
 
   // ignore: unused_field
   final List<String> _rootDoNotReplicate = [
@@ -76,6 +76,10 @@ class ReplicationService implements ReplicationController {
   List<Event> cloudEvents = [];
   //STRING LIST OF CLOUD EVENTS
   List<String> userEvents = [];
+  //STRING OF CONTENTS OF EVENTS
+  List<String> contentEvents = [];
+
+  String sharedScore = '',username = '', sharedScoreDate = '';
 
   ReplicationService();
 
@@ -92,7 +96,7 @@ class ReplicationService implements ReplicationController {
         return false;
       }
     } on SocketException catch (e) {
-      print(__debugLine + 'EXCEPTION');
+      print(__debugLine + 'EXCEPTION: '+e.toString());
       print(e);
       return false;
     }
@@ -107,7 +111,7 @@ class ReplicationService implements ReplicationController {
           await getNode(':Local:Replication:LastReplication');
       return true;
     } catch (e) {
-      print(__debugLine + 'EXCEPTION');
+      print(__debugLine + 'EXCEPTION: '+e.toString());
       return false;
     }
   }
@@ -176,7 +180,7 @@ class ReplicationService implements ReplicationController {
         _fromDate = _lastTimestamp;
       }
     } catch (e) {
-      print('NO REPLICATION NODE FOUND - NO REPLICATION HAS BEEN DONE');
+      print('NO REPLICATION NODE FOUND - NO REPLICATION HAS BEEN DONE: '+e.toString());
 
       /// FULL REPLICATION TAKES PLACE
       _fullRep = true;
@@ -202,7 +206,7 @@ class ReplicationService implements ReplicationController {
         _fullRep = true;
       }
     } catch (e) {
-      toolbox_api.StorageException('USER DATA NOT FOUND. ERROR');
+      toolbox_api.StorageException('USER DATA NOT FOUND. ERROR: '+e.toString());
       print(e);
       return false;
     }
@@ -246,7 +250,7 @@ class ReplicationService implements ReplicationController {
       await updateSecurityDefendersInfo();
       result = true;
     } catch (e) {
-      print("[UPDATE GLOBAL DATA EXCEPTION]");
+      print("[UPDATE GLOBAL DATA EXCEPTION]: "+e.toString());
       print(e);
     }
     return result;
@@ -317,12 +321,12 @@ class ReplicationService implements ReplicationController {
               await checkParents(node.path);
               await updateLocalNodeWithCloudNode(node, _username);
             } catch (e) {
-              print(e);
+              print("ERROR DURING CLOUD TO LOCAL REPLICATION E2EE:"+ e.toString());
 
               /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
               waitingEvents.add(singleOne);
               print(
-                  'FAILURE GETTING KEYS FOR NODE - FUNCTION cloudToLocalReplication: $id');
+                  'FAILURE GETTING KEYS FOR NODE - FUNCTION cloudToLocalReplication ID-EVENT: $id');
             }
           }
           else{
@@ -361,7 +365,7 @@ class ReplicationService implements ReplicationController {
           toolbox_api.Node node = convertJsonStringToNode(waiting.content!);
           await updateLocalNodeWithCloudNode(node, _username);
         } catch (e) {
-          print("GET SHARED NODES FAILURE - FUNCTION cloudToLocalReplication");
+          print("GET SHARED NODES FAILURE - FUNCTION cloudToLocalReplication: "+e.toString());
           print(e.toString());
         }
       }
@@ -426,11 +430,11 @@ class ReplicationService implements ReplicationController {
             }
           }
         } catch (e) {
-          print("ERROR GETTING SINGLE USER EVENT");
+          print("ERROR GETTING SINGLE USER EVENT: "+e.toString());
         }
       }
     } catch (e) {
-      print("ERROR GETTING CLOUD USER EVENTS");
+      print("ERROR GETTING CLOUD USER EVENTS: "+e.toString());
     }
 
     if (nodeList.isEmpty == false) {
@@ -504,6 +508,7 @@ class ReplicationService implements ReplicationController {
             print(e);
             print("CATCH");
             print("ADD LOCAL NODE TO CLOUD");
+            print("ERROR checkin if the event is in the cloud: "+e.toString());
             // IF NO EVENT IS RETURNED -> POST NEW EVENT
             await cloud.createEvent(_username, toCheck);
           }
@@ -525,7 +530,7 @@ class ReplicationService implements ReplicationController {
       print("Agreement exist: " + agreementNode.name);
       checker = true;
     } catch (e) {
-      print("PAIRING NODE NOT FOUND");
+      print("PAIRING NODE NOT FOUND: "+e.toString());
       checker = false;
     }
     return checker;
@@ -551,6 +556,7 @@ class ReplicationService implements ReplicationController {
       print("$userId1 and $userId2 are already paired");
       //throw ReplicationException("Pairing node exist");
     } catch (e) {
+      print("ERROR CREATING LOCAL PAIRING NODE: "+e.toString());
       try {
         toolbox_api.Node agreementParent = await getNode(':Local:Pairing');
         print("Parent path exists: " + agreementParent.name.toString());
@@ -605,6 +611,7 @@ class ReplicationService implements ReplicationController {
         print("CLOUD AGREEMENT ALREADY EXIST");
       }
     } catch (e) {
+      print("ERROR CREATING MERGE LINE 610 REPLICATION SERVICE: "+e.toString());
       await cloud.createMerge(userId1, userId2, agreement, type);
     }
     try {
@@ -615,12 +622,45 @@ class ReplicationService implements ReplicationController {
         print("CLOUD AGREEMENT ALREADY EXIST");
       }
     } catch (e) {
+      print("ERROR CREATING MERGE LINE 621 REPLICATION SERVICE: "+e.toString());
       await cloud.createMerge(userId2, userId1, complementValue, type);
     }
 
     print('GET SHARED NODES BETWEEN PAIRED USERS');
-    await getSharedNodes(userId1, userId2);
+    try{
+      await getSharedNodes(userId1, userId2);
+    }catch (e){
+      print("ERROR GETTING NODES BETWEEN PAIRED USERS LINE 630 REPLICATION SERVICE: "+e.toString());
+      return false;
+    }
+
+    await createEnterprisePairingNode(userId1, userId2);
+
     return true;
+  }
+
+  Future<void> createEnterprisePairingNode(String userId1, String userId2) async {
+    print("[PAIRING] CREATE ENTERPRISE PAIRING NODE");
+    try {
+      toolbox_api.Node entUs = await getNode('$_enterpriseUsers:$userId1:$_pluginAPI');
+      print("USER ENTERPRISE "+ entUs.toString());
+
+      /// get user nodes
+      List<String> allEvents = await cloud.getUserEvents(userId1);
+      for (var event in allEvents) {
+        Event newEvent = await cloud.getSingleUserEvent(userId1, event);
+        contentEvents.add(newEvent.content!);
+      }
+      final sb = StringBuffer();
+      sb.writeAll(contentEvents, ' , ');
+
+      entUs.addOrUpdateValue(toolbox_api.NodeValueImpl("data", sb.toString()));
+      _storageController.addOrUpdate(entUs);
+      print("USER ENTERPRISE "+ entUs.toString());
+
+    } catch(e){
+      print("ERROR CAN NOT LOCATE ENTERPRISE USERS NODE "+e.toString());
+    }
   }
 
   @override
@@ -638,6 +678,7 @@ class ReplicationService implements ReplicationController {
           // ignore: unused_local_variable
           toolbox_api.Node replicationParent = await getNode(':Local:Pairing');
         } catch (e) {
+          print("ERROR CHECKING PARING NODE LINE 649 REPLICATION SERVICE: "+e.toString());
           toolbox_api.Node replicationParent =
               toolbox_api.NodeImpl(':Local:Pairing', _replicationAPI);
           await _storageController.add(replicationParent);
@@ -1135,6 +1176,7 @@ class ReplicationService implements ReplicationController {
   */
   Future<toolbox_api.Node> getNode(String path) async {
     ///print("GET TOOLBOX STORAGE NODE");
+    // ToDo use try and cath to manage the response
     toolbox_api.Node node = await _storageController.get(path);
     return node;
   }

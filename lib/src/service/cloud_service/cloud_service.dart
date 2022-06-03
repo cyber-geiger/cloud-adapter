@@ -577,11 +577,11 @@ class CloudService {
       if (response.statusCode == 200) {
         print("USER MERGED");
       } else {
-        print("FAILED: STATUS CODE " + response.statusCode.toString());
+        print("FAILED FUNCTION createMerge STATUS CODE: " + response.statusCode.toString());
         throw Exception;
       }
     } catch (e) {
-      print("SOME EXCEPTION OCCURED");
+      print("SOME EXCEPTION OCCURED IN FUNCTION createMerge: "+e.toString());
       print(e);
       throw Exception;
     }
@@ -628,10 +628,11 @@ class CloudService {
       } else {
         throw CloudException(
             "Failure getting merged accounts for user: $idUser");
+        print("EXCEPTION FUNCTION getMergedAccounts, Body: "+response.body.toString() + "Status Code: " + response.statusCode.toString());
       }
     } catch (e) {
       print(e);
-      throw CloudException("Failure getting merged account");
+      throw CloudException("Failure getting merged account from FUNCTION getMergedAccounts: "+e.toString());
     }
   }
 
