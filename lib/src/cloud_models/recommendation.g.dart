@@ -22,7 +22,7 @@ Recommendation _$RecommendationFromJson(Map<String, dynamic> json) =>
       relatedThreatsWeights: (json['relatedThreatsWeights'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
-    )..id = json['id'] as String?;
+    );
 
 Map<String, dynamic> _$RecommendationToJson(Recommendation instance) =>
     <String, dynamic>{

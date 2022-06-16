@@ -100,6 +100,9 @@ abstract class ReplicationController {
   /// Updates Security Defenders Info
   Future<void> updateSecurityDefendersInfo();
 
+  /// Updates Company events
+  Future<void> updateCompanyEvents();
+
   /// CREATE HANDLERS
   /// 4 EVENT TYPES: create, update, rename, delete
   Future<void> createHandler(EventChange event);
@@ -124,4 +127,6 @@ abstract class ReplicationController {
   //Future<bool> setSupervisorPair();
 
   //Future<bool> unpairSupervisor();
+
+  Future<bool> createPairingStructure();
 }

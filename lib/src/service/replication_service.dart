@@ -16,7 +16,9 @@ import 'package:cloud_replication_package/src/cloud_models/security_defenders_or
 import 'package:cloud_replication_package/src/cloud_models/user.dart';
 import '../cloud_models/threats.dart';
 import '../cloud_models/event.dart';
+import '../cloud_models/company_event.dart';
 import '../cloud_models/short_user.dart';
+import '../cloud_models/geiger_score.dart';
 import 'package:cloud_replication_package/src/replication_exception.dart';
 import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 import 'package:cloud_replication_package/src/cloud_models/threat_dict.dart';
@@ -52,7 +54,7 @@ class ReplicationService implements ReplicationController {
   // ignore: prefer_final_fields
   List<MessageType> _handledEvents = [];
 
-  late final String _username;
+  late final String _username, _company, _currentDevice;
 
   final String _pluginAPI = 'pairing_plugin';
   final String _replicationAPI = 'replication_plugin';
@@ -78,6 +80,8 @@ class ReplicationService implements ReplicationController {
   List<String> userEvents = [];
   //STRING OF CONTENTS OF EVENTS
   List<String> contentEvents = [];
+  //STRING LIST OF COMPANY EVENTS;
+  List<String> companyEvents = [];
 
   String sharedScore = '',username = '', sharedScoreDate = '';
 
@@ -211,8 +215,6 @@ class ReplicationService implements ReplicationController {
       return false;
     }
     print(_username);
-    // CREATE PAIRING STRUCTURE
-    await createPairingStructure();
 
     /// CLOUD TO LOCAL REPLICATION
     print("[2nd FLOW] - CLOUD TO LOCAL");
@@ -221,6 +223,9 @@ class ReplicationService implements ReplicationController {
     /// LOCAL TO CLOUD REPLICATION
     print("[3rd FLOW] - LOCAL TO CLOUD");
     await localToCloudReplication(_username, _actual, _fromDate, _fullRep, enable_encryption: enable_encryption);
+
+    // CREATE PAIRING STRUCTURE
+    await createPairingStructure();
 
     /// UPDATE WHEN LAST REPLICATION TOOK PLACE
     print("[4th FLOW] - UPDATE WHEN LAST REPLICAION TOOK PLACE");
@@ -248,7 +253,12 @@ class ReplicationService implements ReplicationController {
 
       /// Updates Security Defenders Info
       await updateSecurityDefendersInfo();
+
+      /// Update company events
+      await updateCompanyEvents();
+
       result = true;
+
     } catch (e) {
       print("[UPDATE GLOBAL DATA EXCEPTION]: "+e.toString());
       print(e);
@@ -441,7 +451,6 @@ class ReplicationService implements ReplicationController {
       for (var sorted in nodeList) {
         /// CHECK TLP
         String tlp = sorted.visibility.toValueString();
-        // ignore: unused_local_variable
         String identifier = sorted.name.toString();
         String fullPath = sorted.path;
 
@@ -599,6 +608,7 @@ class ReplicationService implements ReplicationController {
       //"Not valid agreement value. Choose between: {'in','out','both'}");
     }
 
+    /// TODO Refactorizar en una funcion codigo duplicado
     /// check if mutual merge exists
     /// if one user agrees in - the other must agree out and vice versa
     /// if agree both - the other must agree both
@@ -634,33 +644,7 @@ class ReplicationService implements ReplicationController {
       return false;
     }
 
-    await createEnterprisePairingNode(userId1, userId2);
-
     return true;
-  }
-
-  Future<void> createEnterprisePairingNode(String userId1, String userId2) async {
-    print("[PAIRING] CREATE ENTERPRISE PAIRING NODE");
-    try {
-      toolbox_api.Node entUs = await getNode('$_enterpriseUsers:$userId1:$_pluginAPI');
-      print("USER ENTERPRISE "+ entUs.toString());
-
-      /// get user nodes
-      List<String> allEvents = await cloud.getUserEvents(userId1);
-      for (var event in allEvents) {
-        Event newEvent = await cloud.getSingleUserEvent(userId1, event);
-        contentEvents.add(newEvent.content!);
-      }
-      final sb = StringBuffer();
-      sb.writeAll(contentEvents, ' , ');
-
-      entUs.addOrUpdateValue(toolbox_api.NodeValueImpl("data", sb.toString()));
-      _storageController.addOrUpdate(entUs);
-      print("USER ENTERPRISE "+ entUs.toString());
-
-    } catch(e){
-      print("ERROR CAN NOT LOCATE ENTERPRISE USERS NODE "+e.toString());
-    }
   }
 
   @override
@@ -2202,6 +2186,129 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
+  Future<void> updateCompanyEvents() async {
+    try {
+      toolbox_api.Node local = await getNode(':Local');
+      _currentDevice = await local
+          .getValue('currentDevice')
+          .then((value) => value!.getValue("en").toString());
+      print("CURRENT DEVICE ID =======> " + _currentDevice);
+      /* LOCAL NODE WITH COMPANY ID
+      toolbox_api.Node local = await getNode(':Local');
+      String _localCompany = await local
+      String _localCompany = await local
+            .getValue('company')
+            .then((value) => value!.getValue("en").toString());
+        _company = _localCompany;
+      companyEvents = await cloud.getCompanyEvents(_company);*/
+      companyEvents = await cloud.getCompanyEvents('montimage-company-id');
+      print("COMPANY EVENTS"+ companyEvents.toString());
+      /// TODO GET REPLICATION ID
+      /// GET REPLICATION ID
+      //String _replicationId = Uuid().v4();
+      //print("REPLICATION ID =======> " + _replicationId);
+      if(!companyEvents.isEmpty){
+        for(var event in companyEvents){
+          try {
+            CompanyEvent cloudEvent = await cloud.getSingleCompanyEvent(
+                'montimage-company-id', event);
+            print("CLOUD EVENT COMPANY $cloudEvent");
+            createCompanyEventStructure(cloudEvent);
+          } catch (e){
+            print("ERROR GETTING EVENT WITH ID $event FOR COMPANY montimage-company-id");
+          }
+        }
+        print("[UPDATE COMPANY EVENTS] Finished OK");
+      }
+    } catch (e){
+      print("ERROR GETTING CLOUD COMPANY EVENTS");
+    }
+  }
+
+  Future<bool> createCompanyEventStructure(CompanyEvent e) async {
+    try {
+      toolbox_api.Node devicesNode = await getNode(":Devices:device_UUID");
+      print("DEVICE UUID STRUCTURE DOES EXIST");
+    } catch(exp) {
+      toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID", _replicationAPI);
+      toolbox_api.Visibility? checkerVisible =
+      toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerVisible != null) {
+        devicesNode.visibility = checkerVisible;
+      }
+      await _storageController.add(devicesNode);
+    }
+
+    try {
+      toolbox_api.Node devicesNode = await getNode(":Devices:device_UUID:$_currentDevice");
+      print("CURRENT DEVICE STRUCTURE DOES EXIST");
+    } catch(exp) {
+      toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice", _replicationAPI);
+      toolbox_api.Visibility? checkerVisible =
+      toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerVisible != null) {
+        devicesNode.visibility = checkerVisible;
+      }
+      await _storageController.add(devicesNode);
+    }
+
+    try {
+      toolbox_api.Node devicesNode = await getNode(":Devices:device_UUID:$_currentDevice:data");
+      print("DATA STRUCTURE DOES EXIST");
+    } catch(exp) {
+      toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data", _replicationAPI);
+      toolbox_api.Visibility? checkerVisible =
+      toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerVisible != null) {
+        devicesNode.visibility = checkerVisible;
+      }
+      await _storageController.add(devicesNode);
+    }
+
+    try {
+      toolbox_api.Node devicesNode = await getNode(":Devices:device_UUID:$_currentDevice:data:metrics");
+      print("DATA METRICS STRUCTURE DOES EXIST");
+    } catch(exp) {
+      toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data:metrics", _replicationAPI);
+      toolbox_api.Visibility? checkerVisible =
+      toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerVisible != null) {
+        devicesNode.visibility = checkerVisible;
+      }
+      await _storageController.add(devicesNode);
+    }
+
+    try {
+      toolbox_api.Node devicesNode = toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data:metrics", _replicationAPI);
+      String _replicationId = Uuid().v4();
+      print("REPLICATION ID =======> " + _replicationId);
+      toolbox_api.Node structure = toolbox_api.NodeImpl(':Devices:device_UUID:$_currentDevice:data:metrics:$_replicationId', _replicationAPI);
+      toolbox_api.Visibility? checkerData = toolbox_api.VisibilityExtension.valueOf("amber");
+      if (checkerData != null) {
+        structure.visibility = checkerData;
+      }
+      structure.addValue(toolbox_api.NodeValueImpl('name', e.getName.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl('minValue', e.getMinValue.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl('maxValue', e.getMaxValue.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl('GEIGERvalue', e.getGeigerValue.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl('valueType', e.getValueType.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl('type', e.getType.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl('relation', e.getRelation.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl('threatsImpact', e.getThreatsImpact.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl('flag', e.getFlag.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl('description', e.getDescription.toString()));
+      devicesNode.addChild(structure);
+      await _storageController.add(devicesNode);
+      print("NEW DEVICES STRUCTURE " + devicesNode.toString());
+      await _storageController.addOrUpdate(devicesNode);
+      return true;
+    } catch (e) {
+      print("REPLICATION STRUCTURE FOR DEVICE DOES NOT EXIST");
+      return false;
+    }
+  }
+
+  @override
   Future<void> geigerReplicationListener(
       deleteHandler, createHandler, updateHandler, renameHandler) async {
     try {
@@ -2909,18 +3016,13 @@ class ReplicationService implements ReplicationController {
 
 
   /// EXPERIMENTAL NODES
-
+  @override
   Future<bool> createPairingStructure() async {
-    toolbox_api.Node local = await getNode(':Local');
-    String _localUser = await local
-        .getValue('currentUser')
-        .then((value) => value!.getValue("en").toString());
     try {
-      // ignore: unused_local_variable
-      toolbox_api.Node entUs = await getNode(':Enterprise:Users');
+      toolbox_api.Node entUs = await getNode(_enterpriseUsers);
     } catch (e) {
       toolbox_api.Node entUs =
-          toolbox_api.NodeImpl(':Enterprise:Users', _replicationAPI);
+          toolbox_api.NodeImpl(_enterpriseUsers, _replicationAPI);
       toolbox_api.Visibility? checkerVisible =
           toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerVisible != null) {
@@ -2929,11 +3031,10 @@ class ReplicationService implements ReplicationController {
       await _storageController.add(entUs);
     }
     try {
-      // ignore: unused_local_variable
-      toolbox_api.Node entUsId = await getNode(':Enterprise:Users:$_localUser');
+      toolbox_api.Node entUsId = await getNode('$_enterpriseUsers:$_username');
     } catch (e) {
       toolbox_api.Node entUsId = toolbox_api.NodeImpl(
-          ':Enterprise:Users:$_localUser', _replicationAPI);
+          ':Enterprise:Users:$_username', _replicationAPI);
       toolbox_api.Visibility? checkerVisible =
           toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerVisible != null) {
@@ -2942,40 +3043,49 @@ class ReplicationService implements ReplicationController {
       await _storageController.add(entUsId);
     }
     try {
-      // ignore: unused_local_variable
       toolbox_api.Node structure =
-          await getNode(':Enterprise:Users:$_localUser:$_pluginAPI');
+      await getNode(':Enterprise:Users:$_username:$_pluginAPI');
+      //toolbox_api.Node structure = await getNode('$_enterpriseUsers:$_localUser:$_pluginAPI:data');
       return true;
     } catch (e) {
       print("PAIRING STRUCTURE NOT EXIST");
-      toolbox_api.Node structure = toolbox_api.NodeImpl(
-          ':Enterprise:Users:$_localUser:$_pluginAPI', _replicationAPI);
-      toolbox_api.Node data = toolbox_api.NodeImpl(
-          ':Enterprise:Users:$_localUser:$_pluginAPI:data', _replicationAPI);
-      toolbox_api.Visibility? checkerData =
-          toolbox_api.VisibilityExtension.valueOf("amber");
+      toolbox_api.Node structure = toolbox_api.NodeImpl('$_enterpriseUsers:$_username:$_pluginAPI', _replicationAPI);
+      toolbox_api.Node data = toolbox_api.NodeImpl('$_enterpriseUsers:$_username:$_pluginAPI:data', _replicationAPI);
+      toolbox_api.Visibility? checkerData = toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerData != null) {
         structure.visibility = checkerData;
       }
-      data.addValue(toolbox_api.NodeValueImpl('username', ''));
-      data.addValue(toolbox_api.NodeValueImpl('sharedScore', ''));
-      data.addValue(toolbox_api.NodeValueImpl('sharedScoreDate', ''));
-      toolbox_api.Node config = toolbox_api.NodeImpl(
-          ':Enterprise:Users:$_localUser:$_pluginAPI:config', _replicationAPI);
-      toolbox_api.Visibility? checkerConfig =
-          toolbox_api.VisibilityExtension.valueOf("amber");
-      if (checkerConfig != null) {
-        structure.visibility = checkerConfig;
+      try {
+        GeigerScore score = await cloud.getUserGeigerScore(_username);
+        data.addValue(
+            toolbox_api.NodeValueImpl('username', score.getUsername.toString()));
+        data.addValue(
+            toolbox_api.NodeValueImpl('sharedScore', score.getSharedScore.toString()));
+        data.addValue(toolbox_api.NodeValueImpl(
+            'sharedScoreDate', score.getSharedScoreDate.toString()));
+        structure.addChild(data);
+        toolbox_api.Visibility? checkerConfig =
+        toolbox_api.VisibilityExtension.valueOf("amber");
+        if (checkerConfig != null) {
+          structure.visibility = checkerConfig;
+        }
+        toolbox_api.Node config = toolbox_api.NodeImpl(
+            '$_enterpriseUsers:$_username:$_pluginAPI:config', _replicationAPI);
+        config.addValue(toolbox_api.NodeValueImpl('supervisor', ''));
+        config.addValue(toolbox_api.NodeValueImpl('employees', ''));
+        toolbox_api.Visibility? checkerSt = toolbox_api.VisibilityExtension
+            .valueOf("amber");
+        if (checkerSt != null) {
+          structure.visibility = checkerSt;
+        }
+        structure.addChild(config);
+        print("NEW ENTERPRISE STRUCTURE " + structure.toString());
+        await _storageController.addOrUpdate(structure);
+        return true;
+      } catch (e){
+        print("PAIRING STRUCTURE FAILED TO GET GEIGER SCORE");
+        return false;
       }
-      config.addValue(toolbox_api.NodeValueImpl('supervisor', ''));
-      config.addValue(toolbox_api.NodeValueImpl('employees', ''));
-      toolbox_api.Visibility? checkerSt =
-          toolbox_api.VisibilityExtension.valueOf("amber");
-      if (checkerSt != null) {
-        structure.visibility = checkerSt;
-      }
-      await _storageController.add(structure);
-      return true;
     }
   }
 }

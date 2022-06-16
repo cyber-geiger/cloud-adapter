@@ -9,6 +9,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:http/io_client.dart';
 
 import '../../cloud_models/event.dart';
+import '../../cloud_models/company_event.dart';
+import '../../cloud_models/geiger_score.dart';
 import '../../cloud_models/threat_weights.dart';
 import '../../cloud_models/user.dart';
 import '../../cloud_models/short_user.dart';
@@ -543,6 +545,36 @@ class CloudService {
     }
   }
 
+  //GET USER GEIGER SCORE
+  Future<GeigerScore> getUserGeigerScore(String userId) async {
+    try {
+      print('GET USER GEIGER SCORE');
+      final String userUri = '/store/user/$userId/geigerscore';
+      Uri url = Uri.parse(uri + userUri);
+      print(url);
+
+      var ioClient = IOClient(client1);
+      final response = await ioClient.get(
+        url,
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        print('RESPONSE OK');
+        var object = jsonDecode(response.body);
+        return GeigerScore.fromJson(object);
+      } else {
+        print(response.statusCode.toString());
+        throw Exception;
+      }
+    } catch (e) {
+      print('SOME EXCEPTION OCCURED');
+      print(e);
+      throw Exception;
+    }
+  }
   /// USER MERGED DATA
 
   // MERGE INFORMATION
@@ -711,7 +743,74 @@ class CloudService {
       throw CloudException("Error deleting agreement from cloud.");
     }
   }
+  //GET COMPANY EVENTS
+  Future<List<String>> getCompanyEvents(String companyId) async {
+    try {
+      print('GET COMPANY EVENTS');
+      final String eventUri = '/store/company/$companyId/event';
+      Uri url = Uri.parse(uri + eventUri);
+      print(url);
+      var ioClient = IOClient(client1);
+      final response = await ioClient.get(
+        url,
+        headers: <String, String>{
+          'accept': 'application/json',
+          'content-type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        print('RESPONSE OK');
+        List<String> allEvents = [];
+        if ((response.body).isNotEmpty) {
+          var object = jsonDecode(response.body);
+          if (object.isEmpty) {
+            allEvents = [];
+          } else {
+            allEvents = (object as List<dynamic>).cast<String>();
+          }
+        } else {
+          allEvents = [];
+        }
+        return allEvents;
+      } else {
+        throw Exception;
+      }
+    } catch (e) {
+      print('SOME EXCEPTION OCCURRED');
+      print(e);
+      throw Exception;
+    }
+  }
 
+  //GET SINGLE COMPANY EVENT
+  Future<CompanyEvent> getSingleCompanyEvent(String companyId, String eventId) async {
+    try {
+      print('GET SINGLE COMPANY EVENT');
+      final String eventUri = '/store/company/$companyId/event/$eventId';
+      Uri url = Uri.parse(uri + eventUri);
+      print(url);
+      var ioClient = IOClient(client1);
+      final response = await ioClient.get(
+        url,
+        headers: <String, String>{
+          'accept': 'application/json',
+          'content-type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        print('RESPONSE OK');
+        var object = jsonDecode(response.body);
+        return CompanyEvent.fromJson(object);
+      } else {
+        throw CloudException(
+            "Exception getting the event from the cloud. Status code: " +
+                response.statusCode.toString());
+      }
+    } catch (e) {
+      print(e);
+      throw CloudException("Exception getting the event from the cloud");
+    }
+  }
   //DELETE USER INFORMATION - DEVELOPMENT PORPUSES
   Future<void> deleteUser(String idUser1) async {
     try {
