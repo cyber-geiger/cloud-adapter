@@ -5,13 +5,13 @@ part 'geiger_score.g.dart';
 @JsonSerializable(explicitToJson: true)
 class GeigerScore {
   String? username;
-  String? sharedscore;
-  DateTime? sharedscoredate;
+  String? sharedScore;
+  DateTime? sharedScoreDate;
 
   GeigerScore({
     this.username,
-    this.sharedscore,
-    this.sharedscoredate
+    this.sharedScore,
+    this.sharedScoreDate
   });
 
   factory GeigerScore.fromJson(Map<String,dynamic> json) => _$GeigerScoreFromJson(json);
@@ -21,10 +21,10 @@ class GeigerScore {
   String? get getUsername => username;
   set setUsername(String name) => this.username = name;
 
-  String? get getSharedScore => sharedscore;
-  set setSharedScore(String score) => this.sharedscore = score;
+  String? get getSharedScore => sharedScore;
+  set setSharedScore(String score) => this.sharedScore = score;
 
-  DateTime? get getSharedScoreDate => sharedscoredate;
-  set setSharedScoreDate(DateTime date) => this.sharedscoredate = date;
+  DateTime? get getSharedScoreDate => sharedScoreDate;
+  set setSharedScoreDate(DateTime date) => this.sharedScoreDate = date;
 
 }
