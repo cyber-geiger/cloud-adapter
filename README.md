@@ -11,7 +11,7 @@ and the Flutter guide for
 [developing packages and plugins](https://flutter.dev/developing-packages).
 -->
 
-# GEIGER Replication (also called GEIGER Cloud Adaptor)
+# GEIGER Replication (also called GEIGER Cloud Adapter)
 
 This repository contains the implementation for the replication and pairing process used in the GEIGER project in dart.
 
