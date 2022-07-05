@@ -60,6 +60,7 @@ class ReplicationService implements ReplicationController {
   final String _replicationAPI = 'replication_plugin';
   final String __debugLine = '[REPLICATION SERVICE] ';
   final String _enterpriseUsers = ":Enterprise:Users";
+  final _enableEncryption = false;
 
   // ignore: unused_field
   final List<String> _rootDoNotReplicate = [
@@ -145,7 +146,6 @@ class ReplicationService implements ReplicationController {
   @override
   Future<bool> geigerReplication(
       deleteHandler, createHandler, updateHandler, renameHandler) async {
-    final enable_encryption = false;
     print(__debugLine + 'STARTING GEIGER REPLICATION REGULAR WITH GLOBAL');
 
     /// Follow diagram
@@ -218,17 +218,17 @@ class ReplicationService implements ReplicationController {
 
     /// CLOUD TO LOCAL REPLICATION
     print("[2nd FLOW] - CLOUD TO LOCAL");
-    await cloudToLocalReplication(_username, _actual, _fromDate, _fullRep, enable_encryption: enable_encryption);
+    await cloudToLocalReplication(_username, _actual, _fromDate, _fullRep, _enableEncryption);
 
     /// LOCAL TO CLOUD REPLICATION
     print("[3rd FLOW] - LOCAL TO CLOUD");
-    await localToCloudReplication(_username, _actual, _fromDate, _fullRep, enable_encryption: enable_encryption);
+    await localToCloudReplication(_username, _actual, _fromDate, _fullRep, _enableEncryption);
 
     // CREATE PAIRING STRUCTURE
     await createPairingStructure();
 
     /// UPDATE WHEN LAST REPLICATION TOOK PLACE
-    print("[4th FLOW] - UPDATE WHEN LAST REPLICAION TOOK PLACE");
+    print("[4th FLOW] - UPDATE WHEN LAST REPLICATION TOOK PLACE");
     await updateReplicationNode(_actual);
 
     /// STORAGE LISTENER
@@ -267,7 +267,7 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<void> cloudToLocalReplication(String _username, DateTime _actual,
-      DateTime _fromDate, bool _fullRep, {bool enable_encryption= false}) async {
+      DateTime _fromDate, bool _fullRep, bool enable_encryption) async {
     print("CLOUD TO LOCAL REPLICATION - Function cloudToLocalReplication");
 
     /// WITH DATETIME TAKE EVENTS FROM THE CLOUD
@@ -385,7 +385,7 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<void> localToCloudReplication(String _username, DateTime _actual,
-      DateTime _fromDate, bool _fullRep, {bool enable_encryption= false}) async {
+      DateTime _fromDate, bool _fullRep, bool enable_encryption) async {
     print("REPLICATION - LOCAL TO CLOUD NODES REPLICATION - FUNCTION localToCloudReplication");
 
     /// START OF THE SECOND DIAGRAM
@@ -1187,7 +1187,7 @@ class ReplicationService implements ReplicationController {
       newRepNode.lastModified = _actual.millisecondsSinceEpoch;
       await _storageController.addOrUpdate(newRepNode);
     }
-    //print('[REPLICATION NODE] UPDATED');
+    print('[REPLICATION NODE] UPDATED');
   }
 
   Future<void> updateLocalNodeWithCloudNode(
@@ -1662,6 +1662,8 @@ class ReplicationService implements ReplicationController {
       await getRecursiveNodes(root3, nodeList);
       toolbox_api.Node root4 = await getNode(':Enterprise');
       await getRecursiveNodes(root4, nodeList);
+      toolbox_api.Node root5 = await getNode(':Chatbot');
+      await getRecursiveNodes(root5, nodeList);
     } catch (e) {
       print(e);
     }
@@ -1677,6 +1679,7 @@ class ReplicationService implements ReplicationController {
         dataPath != ":Users" &&
         dataPath != ":Devices" &&
         dataPath != ":Enterprise" &&
+        dataPath != ":Chatbot" &&
         dataPath != ":Keys" &&
         dataPath != ":Global" &&
         dataPath != ":Local") {
@@ -2381,7 +2384,7 @@ class ReplicationService implements ReplicationController {
         int index = cloudNodePath.indexOf(oldPath);
         String cloudId = userEvents[index];
         Event toCheck = await cloud.getSingleUserEvent(_username, cloudId);
-        if (tlp.toLowerCase() == 'red') {
+        if (tlp.toLowerCase() == 'red' && _enableEncryption) {
           try {
             Map<dynamic, dynamic> encryptedNode =
                 await encryptListenerCloudData(newNode);
@@ -2405,7 +2408,7 @@ class ReplicationService implements ReplicationController {
         String uuid = await cloud.generateUUID();
         Event toCheck = Event(id_event: uuid, tlp: tlp.toUpperCase());
         toCheck.encoding = 'ascii';
-        if (tlp.toLowerCase() == 'red') {
+        if (tlp.toLowerCase() == 'red' && _enableEncryption) {
           try {
             Map<dynamic, dynamic> encryptedNode =
                 await encryptListenerCloudData(newNode);
@@ -2450,7 +2453,7 @@ class ReplicationService implements ReplicationController {
         String cloudId = userEvents[index];
         Event toCheck = await cloud.getSingleUserEvent(_username, cloudId);
         toCheck.encoding = 'ascii';
-        if (tlp.toLowerCase() == 'red') {
+        if (tlp.toLowerCase() == 'red' && _enableEncryption) {
           try {
             Map<dynamic, dynamic> encryptedNode =
                 await encryptListenerCloudData(newNode);
@@ -2473,7 +2476,7 @@ class ReplicationService implements ReplicationController {
         String uuid = await cloud.generateUUID();
         Event toCheck = Event(id_event: uuid, tlp: tlp.toUpperCase());
         toCheck.encoding = 'ascii';
-        if (tlp.toLowerCase() == 'red') {
+        if (tlp.toLowerCase() == 'red' && _enableEncryption) {
           try {
             Map<dynamic, dynamic> encryptedNode =
                 await encryptListenerCloudData(newNode);
