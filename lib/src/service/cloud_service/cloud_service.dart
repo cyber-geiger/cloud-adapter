@@ -546,7 +546,7 @@ class CloudService {
   }
 
   //GET USER GEIGER SCORE
-  Future<GeigerScore> getUserGeigerScore(String userId) async {
+  Future<Event> getUserGeigerScore(String userId) async {
     try {
       print('GET USER GEIGER SCORE');
       final String userUri = '/store/user/$userId/geigerscore';
@@ -564,7 +564,38 @@ class CloudService {
       if (response.statusCode == 200) {
         print('RESPONSE OK');
         var object = jsonDecode(response.body);
-        return GeigerScore.fromJson(object);
+        return Event.fromJson(object);
+      } else {
+        print(response.statusCode.toString());
+        throw Exception;
+      }
+    } catch (e) {
+      print('SOME EXCEPTION OCCURED');
+      print(e);
+      throw Exception;
+    }
+  }
+
+  //GET USER DEVICE INFO
+  Future<Event> getUserDeviceInfo(String userId, String deviceId) async {
+    try {
+      print('GET USER DEVICE INFO');
+      final String userUri = '/store/user/$userId/device/$deviceId';
+      Uri url = Uri.parse(uri + userUri);
+      print(url);
+
+      var ioClient = IOClient(client1);
+      final response = await ioClient.get(
+        url,
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        print('RESPONSE OK');
+        var object = jsonDecode(response.body);
+        return Event.fromJson(object);
       } else {
         print(response.statusCode.toString());
         throw Exception;

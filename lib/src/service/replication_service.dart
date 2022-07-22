@@ -3,6 +3,7 @@ library geiger_replication;
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 
 // ignore: library_prefixes
 import 'package:encrypt/encrypt.dart' as Enc;
@@ -55,6 +56,7 @@ class ReplicationService implements ReplicationController {
   List<MessageType> _handledEvents = [];
 
   late final String _username, _company, _currentDevice, _currentDeviceName;
+  late final String _qrUserId, _qrDeviceId;
 
   final String _devicesPairing = 'devicesPairing';
   final String _replicationAPI = 'replication_plugin';
@@ -130,13 +132,9 @@ class ReplicationService implements ReplicationController {
           await getNode(':Local:Replication:LastReplication');
       DateTime _actual = DateTime.now();
       DateTime _fromDate = _actual.subtract(Duration(days: 30));
-      int milis = _fromDate.millisecondsSinceEpoch;
+      int milSEpoch = _fromDate.millisecondsSinceEpoch;
       int nodeTimestamp = checker.lastModified;
-      if (milis < nodeTimestamp) {
-        return false;
-      } else {
-        return true;
-      }
+      return milSEpoch < nodeTimestamp ? false : true;
     } catch (e) {
       print(__debugLine + 'EXCEPTION');
       return false;
@@ -144,10 +142,7 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
-  Future<bool> geigerReplication(
-      deleteHandler, createHandler, updateHandler, renameHandler) async {
-    print(__debugLine + 'STARTING GEIGER REPLICATION REGULAR WITH GLOBAL');
-
+  Future<bool> geigerReplicationUpdate() async {
     /// Follow diagram
     /// 3 steps replication
     /// Cloud to device
@@ -203,9 +198,9 @@ class ReplicationService implements ReplicationController {
       bool exists = await cloud.userExists(_username.toString());
       //print(exists.toString());
       if (exists == false) {
-        await cloud.createUser(_username.toString());
-        //IF NO USER IN cloud. NO REPLICATION HAS TAKEN PLACE
-        //print('No replication has taken place');
+        toolbox_api.Node localUser = await getNode(':Enterprise:Users:$_localUser');
+        String name = await localUser.getValue('name').then((value) => value!.getValue("en").toString());
+        await cloud.createUser(_username.toString(),name=name);
         /// FULL REPLICATION TAKES PLACE
         _fullRep = true;
       }
@@ -224,12 +219,19 @@ class ReplicationService implements ReplicationController {
     print("[3rd FLOW] - LOCAL TO CLOUD");
     await localToCloudReplication(_username, _actual, _fromDate, _fullRep, _enableEncryption);
 
-    // CREATE PAIRING STRUCTURE
-    await createPairingStructure();
-
     /// UPDATE WHEN LAST REPLICATION TOOK PLACE
     print("[4th FLOW] - UPDATE WHEN LAST REPLICATION TOOK PLACE");
     await updateReplicationNode(_actual);
+
+    return true;
+  }
+
+  @override
+  Future<bool> geigerReplication(
+      deleteHandler, createHandler, updateHandler, renameHandler) async {
+    print(__debugLine + 'STARTING GEIGER REPLICATION REGULAR WITH GLOBAL');
+
+    await geigerReplicationUpdate();
 
     /// STORAGE LISTENER
     print("[5th FLOW] - LISTENER REPLICATION");
@@ -267,7 +269,7 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<void> cloudToLocalReplication(String _username, DateTime _actual,
-      DateTime _fromDate, bool _fullRep, bool enable_encryption) async {
+      DateTime _fromDate, bool _fullRep, bool _enableEncryption) async {
     print("CLOUD TO LOCAL REPLICATION - Function cloudToLocalReplication");
 
     /// WITH DATETIME TAKE EVENTS FROM THE CLOUD
@@ -320,7 +322,7 @@ class ReplicationService implements ReplicationController {
           await updateLocalNodeWithCloudNode(node, _username);
         }
         if (type.toLowerCase() == "user_object") {
-          if (enable_encryption) {
+          if (_enableEncryption) {
             print(
                 'CLOUD TO LOCAL REPLICATION - E2EE - FUNCTION cloudToLocalReplication');
             try {
@@ -385,7 +387,7 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<void> localToCloudReplication(String _username, DateTime _actual,
-      DateTime _fromDate, bool _fullRep, bool enable_encryption) async {
+      DateTime _fromDate, bool _fullRep, bool _enableEncryption) async {
     print("REPLICATION - LOCAL TO CLOUD NODES REPLICATION - FUNCTION localToCloudReplication");
 
     /// START OF THE SECOND DIAGRAM
@@ -451,7 +453,7 @@ class ReplicationService implements ReplicationController {
       for (var sorted in nodeList) {
         /// CHECK TLP
         String tlp = sorted.visibility.toValueString();
-        String identifier = sorted.name.toString();
+        //String identifier = sorted.name.toString();
         String fullPath = sorted.path;
 
         /// CHECK CONSENT
@@ -467,7 +469,7 @@ class ReplicationService implements ReplicationController {
             sorted.tombstone == false) {
           if (tlp.toLowerCase() == 'red') {
             print("TLP:RED NODE");
-            if(enable_encryption) {
+            if(_enableEncryption) {
               try {
                 Map<dynamic, dynamic> convertedNode =
                 await encryptCloudData(sorted);
@@ -478,16 +480,19 @@ class ReplicationService implements ReplicationController {
                     json.encode(await convertNodeToJsonString(sorted));
                 print('FAILURE GETTING KEYS');
               }
+              /// ToDo find aggregate score y change node type
               toCheck.type = 'user_object';
-            }
-            else{
-              toCheck.type = 'user_object';
+              /// ToDo find key to decrypt data
+              //toCheck.keyValue = "key";
+            } else {
+              toCheck.type = (sorted.name.toLowerCase() == 'geigerscoreaggregate') ?
+              'aggregate_score' : 'user_object';
               toCheck.content = json.encode(await convertNodeToJsonString(sorted));
             }
           } else {
-            toCheck.type = 'keyvalue';
-            toCheck.content =
-                json.encode(await convertNodeToJsonString(sorted));
+            toCheck.type = (sorted.name.toLowerCase() == 'geigerscoreaggregate') ?
+            'aggregate_score' : 'user_object';
+            toCheck.content = json.encode(await convertNodeToJsonString(sorted));
           }
           toCheck.owner = _username;
           //CHECK IF EVENT IN CLOUD
@@ -509,8 +514,7 @@ class ReplicationService implements ReplicationController {
                 await cloud.updateEvent(_username, userEvents[index], toCheck);
               }
             } else {
-              print("NODE NOT IN CLOUD");
-              print("ADD LOCAL NODE TO CLOUD");
+              print("NODE NOT IN CLOUD -- ADD LOCAL NODE TO CLOUD");
               await cloud.createEvent(_username, toCheck);
             }
           } catch (e) {
@@ -546,24 +550,38 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
-  Future<bool> setPair(String userId1, String userId2, String agreement,
-      [String? publicKey, String? type]) async {
+  /// INFO 		 					              --- QR
+  /// PAIRING USER 					          --- qrUserId
+  /// PAIR DeviceId					          --- qrDeviceId
+  /// public key   					          --- publicKey
+  /// agreement    					          --- {"in","out","both"}
+  /// type                            --- device / employee
+  Future<bool> setPair(String qrUserId,
+      String qrDeviceId,
+      String publicKey,
+      String agreement,
+      String type) async {
     print("START SET PAIR METHOD");
+    _qrUserId = qrUserId;
+    _qrDeviceId = qrDeviceId;
+
+    // CREATE PAIRING STRUCTURE
+    log('[PAIRING STRUCTURE] CREATE PAIRING');
+    await createPairingStructure(publicKey);
 
     /// Check if both users in the cloud
-    /// second (remote) user should be created from the others device
-    bool user1Exists = await cloud.userExists(userId1);
+    /// second qrUserId (remote) user should be created from the others device
+    bool user1Exists = await cloud.userExists(_username);
     if (!user1Exists) {
       /// CHECK IF LOCALLY WE DO HAVE MORE DATA
-      await cloud.createUser(userId1);
+      await cloud.createUser(_username);
     }
 
     /// CREATES LOCAL PAIRING NODE
     try {
-      toolbox_api.Node agreementNode = await getNode(':Local:Pairing:$userId2');
+      toolbox_api.Node agreementNode = await getNode(':Local:Pairing:$_qrUserId');
       print("Node exists for the path:" + agreementNode.path.toString());
-      print("$userId1 and $userId2 are already paired");
-      //throw ReplicationException("Pairing node exist");
+      print("$_username and $_qrUserId are already paired");
     } catch (e) {
       print("ERROR CREATING LOCAL PAIRING NODE: "+e.toString());
       try {
@@ -576,7 +594,7 @@ class ReplicationService implements ReplicationController {
         await _storageController.add(agreementParent);
       }
       toolbox_api.Node newAgreement =
-          toolbox_api.NodeImpl(':Local:Pairing:$userId2', _replicationAPI);
+          toolbox_api.NodeImpl(':Local:Pairing:$_qrUserId', _replicationAPI);
       newAgreement
           .addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", agreement));
       if (publicKey != null) {
@@ -604,8 +622,6 @@ class ReplicationService implements ReplicationController {
     } else {
       print("Not valid agreement value. Choose between: {'in','out','both'}");
       return false;
-      //throw ReplicationException(
-      //"Not valid agreement value. Choose between: {'in','out','both'}");
     }
 
     /// TODO Refactorizar en una funcion codigo duplicado
@@ -614,31 +630,31 @@ class ReplicationService implements ReplicationController {
     /// if agree both - the other must agree both
     /// check userId1 agreements
     try {
-      List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
-      if (agreeUser1.contains(userId2) == false) {
-        await cloud.createMerge(userId1, userId2, agreement, type);
+      List<String> agreeUser1 = await cloud.getMergedAccounts(_username);
+      if (agreeUser1.contains(_qrUserId) == false) {
+        await cloud.createMerge(_username, _qrUserId, agreement, type);
       } else {
         print("CLOUD AGREEMENT ALREADY EXIST");
       }
     } catch (e) {
       print("ERROR CREATING MERGE LINE 610 REPLICATION SERVICE: "+e.toString());
-      await cloud.createMerge(userId1, userId2, agreement, type);
+      await cloud.createMerge(_username, _qrUserId, agreement, type);
     }
     try {
-      List<String> agreeUser2 = await cloud.getMergedAccounts(userId2);
-      if (agreeUser2.contains(userId1) == false) {
-        await cloud.createMerge(userId2, userId1, complementValue, type);
+      List<String> agreeUser2 = await cloud.getMergedAccounts(_qrUserId);
+      if (agreeUser2.contains(_username) == false) {
+        await cloud.createMerge(_qrUserId, _username, complementValue, type);
       } else {
         print("CLOUD AGREEMENT ALREADY EXIST");
       }
     } catch (e) {
       print("ERROR CREATING MERGE LINE 621 REPLICATION SERVICE: "+e.toString());
-      await cloud.createMerge(userId2, userId1, complementValue, type);
+      await cloud.createMerge(_qrUserId, _username, complementValue, type);
     }
 
     print('GET SHARED NODES BETWEEN PAIRED USERS');
     try{
-      await getSharedNodes(userId1, userId2);
+      await getSharedNodes(_username, _qrUserId);
     }catch (e){
       print("ERROR GETTING NODES BETWEEN PAIRED USERS LINE 630 REPLICATION SERVICE: "+e.toString());
       return false;
@@ -2224,15 +2240,15 @@ class ReplicationService implements ReplicationController {
           .getValue('currentDevice')
           .then((value) => value!.getValue("en").toString());
       print("CURRENT DEVICE ID =======> " + _currentDevice);
-      /* LOCAL NODE WITH COMPANY ID
-      toolbox_api.Node local = await getNode(':Local');
-      String _localCompany = await local
-      String _localCompany = await local
+      //LOCAL NODE WITH COMPANY ID
+      try {
+        _company = await local
             .getValue('company')
             .then((value) => value!.getValue("en").toString());
-        _company = _localCompany;
-      companyEvents = await cloud.getCompanyEvents(_company);*/
-      companyEvents = await cloud.getCompanyEvents('montimage-company-id');
+      } catch(e) {
+        _company = 'montimage-company-id';
+      }
+      companyEvents = await cloud.getCompanyEvents(_company);
       print("COMPANY EVENTS"+ companyEvents.toString());
       /// TODO GET REPLICATION ID
       /// GET REPLICATION ID
@@ -2257,8 +2273,9 @@ class ReplicationService implements ReplicationController {
   }
 
   Future<bool> createCompanyEventStructure(CompanyEvent e) async {
+    toolbox_api.Node devicesNode;
     try {
-      toolbox_api.Node devicesNode = await getNode(":Devices:device_UUID");
+      devicesNode = await getNode(":Devices:device_UUID");
       print("DEVICE UUID STRUCTURE DOES EXIST");
     } catch(exp) {
       toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID", _replicationAPI);
@@ -2271,7 +2288,7 @@ class ReplicationService implements ReplicationController {
     }
 
     try {
-      toolbox_api.Node devicesNode = await getNode(":Devices:device_UUID:$_currentDevice");
+      devicesNode = await getNode(":Devices:device_UUID:$_currentDevice");
       print("CURRENT DEVICE STRUCTURE DOES EXIST");
     } catch(exp) {
       toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice", _replicationAPI);
@@ -2284,7 +2301,7 @@ class ReplicationService implements ReplicationController {
     }
 
     try {
-      toolbox_api.Node devicesNode = await getNode(":Devices:device_UUID:$_currentDevice:data");
+      devicesNode = await getNode(":Devices:device_UUID:$_currentDevice:data");
       print("DATA STRUCTURE DOES EXIST");
     } catch(exp) {
       toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data", _replicationAPI);
@@ -2297,7 +2314,7 @@ class ReplicationService implements ReplicationController {
     }
 
     try {
-      toolbox_api.Node devicesNode = await getNode(":Devices:device_UUID:$_currentDevice:data:metrics");
+      devicesNode = await getNode(":Devices:device_UUID:$_currentDevice:data:metrics");
       print("DATA METRICS STRUCTURE DOES EXIST");
     } catch(exp) {
       toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data:metrics", _replicationAPI);
@@ -2310,7 +2327,7 @@ class ReplicationService implements ReplicationController {
     }
 
     try {
-      toolbox_api.Node devicesNode = toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data:metrics", _replicationAPI);
+      devicesNode = toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data:metrics", _replicationAPI);
       String _replicationId = Uuid().v4();
       print("REPLICATION ID =======> " + _replicationId);
       toolbox_api.Node structure = toolbox_api.NodeImpl(':Devices:device_UUID:$_currentDevice:data:metrics:$_replicationId', _replicationAPI);
@@ -3048,14 +3065,14 @@ class ReplicationService implements ReplicationController {
 
 
   @override
-  Future<bool> createPairingStructure() async {
+  Future<bool> createPairingStructure(String publicKey) async {
     try {
       toolbox_api.Node entUs = await getNode(_enterpriseUsers);
     } catch (e) {
       toolbox_api.Node entUs =
-          toolbox_api.NodeImpl(_enterpriseUsers, _replicationAPI);
+      toolbox_api.NodeImpl(_enterpriseUsers, _replicationAPI);
       toolbox_api.Visibility? checkerVisible =
-          toolbox_api.VisibilityExtension.valueOf("amber");
+      toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerVisible != null) {
         entUs.visibility = checkerVisible;
       }
@@ -3067,7 +3084,7 @@ class ReplicationService implements ReplicationController {
       toolbox_api.Node entUsId = toolbox_api.NodeImpl(
           ':Enterprise:Users:$_username', _replicationAPI);
       toolbox_api.Visibility? checkerVisible =
-          toolbox_api.VisibilityExtension.valueOf("amber");
+      toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerVisible != null) {
         entUsId.visibility = checkerVisible;
       }
@@ -3075,36 +3092,39 @@ class ReplicationService implements ReplicationController {
     }
     try {
       toolbox_api.Node structure =
-      await getNode('$_enterpriseUsers:$_username:$_devicesPairing');
+      await getNode('$_enterpriseUsers:$_qrUserId:$_devicesPairing');
       return true;
     } catch (e) {
       print("DEVICES PAIRING STRUCTURE DOES NOT EXIST");
       toolbox_api.Node structure = toolbox_api.NodeImpl('$_enterpriseUsers:$_username:$_devicesPairing', _replicationAPI);
-      toolbox_api.Node geigerScore = toolbox_api.NodeImpl('$_enterpriseUsers:$_username:$_devicesPairing:$_currentDevice', _replicationAPI);
+      toolbox_api.Node geigerScore = toolbox_api.NodeImpl('$_enterpriseUsers:$_username:$_devicesPairing:$_qrDeviceId', _replicationAPI);
       toolbox_api.Visibility? checkerData = toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerData != null) {
         structure.visibility = checkerData;
       }
       try {
-        GeigerScore score = await cloud.getUserGeigerScore(_username);
-        toolbox_api.Node devices = await getNode(':Devices:$_currentDevice');
-        _currentDeviceName = await devices
-            .getValue('name')
-            .then((value) => value!.getValue("en").toString());
-        geigerScore.addValue(toolbox_api.NodeValueImpl('username', score.getUsername.toString()));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('useruuid', score.getUseruuid.toString()));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('devicename', _currentDeviceName));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('sharedScore', score.getSharedScore.toString()));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('sharedNumberOfMetrics', score.getSharedNumberOfMetrics.toString()));
+        Event score = await cloud.getUserGeigerScore(_qrUserId);
+        if(_enableEncryption){
+          Map<dynamic, dynamic> jsonify = await decryptCloudData(score);
+          score.setContent = jsonEncode(jsonify);
+        }
+        Event device = await cloud.getUserDeviceInfo(_qrUserId,_qrDeviceId);
+        User userQr = await cloud.getUser(_qrUserId);
+        geigerScore.addValue(toolbox_api.NodeValueImpl('userName', userQr.name ?? ""));
+        geigerScore.addValue(toolbox_api.NodeValueImpl('userUUID', _qrUserId));
+        geigerScore.addValue(toolbox_api.NodeValueImpl('deviceName', jsonDecode(device.content!)['custom_fields'][0]['value']));
+        geigerScore.addValue(toolbox_api.NodeValueImpl('deviceType', jsonDecode(device.content!)['custom_fields'][2]['value']));
+        geigerScore.addValue(toolbox_api.NodeValueImpl('sharedGeigerScore', jsonDecode(score.content!)['custom_fields'][0]['value']));
+        geigerScore.addValue(toolbox_api.NodeValueImpl('sharedThreatsScore', jsonDecode(score.content!)['custom_fields'][3]['value']));
+        geigerScore.addValue(toolbox_api.NodeValueImpl('sharedNumberOfMetric', jsonDecode(score.content!)['custom_fields'][2]['value']));
         geigerScore.addValue(toolbox_api.NodeValueImpl('sharedScoreDate', DateTime.now().toString()));
-        //geigerScore.addValue(toolbox_api.NodeValueImpl('sharedScoreDate', score.getSharedScoreDate.toString()));
         toolbox_api.Visibility? checkerConfig =
         toolbox_api.VisibilityExtension.valueOf("amber");
         if (checkerConfig != null) {
           geigerScore.visibility = checkerConfig;
         }
         structure.addChild(geigerScore);
-        print("NEW ENTERPRISE STRUCTURE " + geigerScore.toString());
+        log("NEW ENTERPRISE STRUCTURE " + geigerScore.getValues().toString());
         await _storageController.addOrUpdate(structure);
         return true;
       } catch (e){

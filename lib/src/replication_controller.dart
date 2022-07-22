@@ -26,6 +26,10 @@ abstract class ReplicationController {
       deleteHandler, createHandler, updateHandler, renameHandler);
 
   /// Achieves full or partial replication
+  /// Once listeners are already active
+  Future<void> geigerReplicationUpdate();
+
+  /// Achieves full or partial replication
   /// INCLUDES LISTENERS
   /// INCLUDES GLOBAL DATA
   //Future<void> geigerReplicationWithoutGlobalData(
@@ -38,11 +42,14 @@ abstract class ReplicationController {
   Future<bool> checkPairing(String userId1, String userId2);
 
   /// Call this function to create a pairing agreement in local and cloud
-  /// userId: LocalUserId
-  /// userId2: remoteUser
-  /// agreement: agreement value: {"in","out","both"}
-  Future<bool> setPair(String userId1, String userId2, String agreement,
-      [String? publicKey, String? type]);
+  /// INFO                            --- QR
+  /// PAIRING USER                    --- qrUserId
+  /// PAIR DeviceId                   --- qrDeviceId
+  /// public key                      --- publicKey
+  /// agreement                       --- {"in","out","both"}
+  /// type                            --- device / employee
+  Future<bool> setPair(String qrUserId, String qrDeviceId,
+     String publicKey, String agreement, String type);
 
   /// TO BE RUN BY THE DEVICE THAT GENERATES THE QR CODE
   Future<bool> updatePair(String userId1);
@@ -128,5 +135,5 @@ abstract class ReplicationController {
 
   //Future<bool> unpairSupervisor();
 
-  Future<bool> createPairingStructure();
+  Future<bool> createPairingStructure(String publicKey);
 }
