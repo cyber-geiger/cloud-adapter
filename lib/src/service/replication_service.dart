@@ -59,6 +59,7 @@ class ReplicationService implements ReplicationController {
   late final String _qrUserId, _qrDeviceId;
 
   final String _devicesPairing = 'devicesPairing';
+  final String _employeesPairing = 'employeesPairing';
   final String _replicationAPI = 'replication_plugin';
   final String __debugLine = '[REPLICATION SERVICE] ';
   final String _enterpriseUsers = ":Enterprise:Users";
@@ -567,7 +568,7 @@ class ReplicationService implements ReplicationController {
 
     // CREATE PAIRING STRUCTURE
     log('[PAIRING STRUCTURE] CREATE PAIRING');
-    await createPairingStructure(publicKey);
+    await createPairingStructure(publicKey, type);
 
     /// Check if both users in the cloud
     /// second qrUserId (remote) user should be created from the others device
@@ -3065,72 +3066,112 @@ class ReplicationService implements ReplicationController {
 
 
   @override
-  Future<bool> createPairingStructure(String publicKey) async {
-    try {
-      toolbox_api.Node entUs = await getNode(_enterpriseUsers);
-    } catch (e) {
-      toolbox_api.Node entUs =
-      toolbox_api.NodeImpl(_enterpriseUsers, _replicationAPI);
-      toolbox_api.Visibility? checkerVisible =
-      toolbox_api.VisibilityExtension.valueOf("amber");
-      if (checkerVisible != null) {
-        entUs.visibility = checkerVisible;
-      }
-      await _storageController.add(entUs);
-    }
-    try {
-      toolbox_api.Node entUsId = await getNode('$_enterpriseUsers:$_username');
-    } catch (e) {
-      toolbox_api.Node entUsId = toolbox_api.NodeImpl(
-          ':Enterprise:Users:$_username', _replicationAPI);
-      toolbox_api.Visibility? checkerVisible =
-      toolbox_api.VisibilityExtension.valueOf("amber");
-      if (checkerVisible != null) {
-        entUsId.visibility = checkerVisible;
-      }
-      await _storageController.add(entUsId);
-    }
-    try {
-      toolbox_api.Node structure =
-      await getNode('$_enterpriseUsers:$_qrUserId:$_devicesPairing');
-      return true;
-    } catch (e) {
-      print("DEVICES PAIRING STRUCTURE DOES NOT EXIST");
-      toolbox_api.Node structure = toolbox_api.NodeImpl('$_enterpriseUsers:$_username:$_devicesPairing', _replicationAPI);
-      toolbox_api.Node geigerScore = toolbox_api.NodeImpl('$_enterpriseUsers:$_username:$_devicesPairing:$_qrDeviceId', _replicationAPI);
-      toolbox_api.Visibility? checkerData = toolbox_api.VisibilityExtension.valueOf("amber");
-      if (checkerData != null) {
-        structure.visibility = checkerData;
-      }
+  Future<bool> createPairingStructure(String publicKey, String type) async {
+    if (type.contains('device')) {
       try {
-        Event score = await cloud.getUserGeigerScore(_qrUserId);
-        if(_enableEncryption){
-          Map<dynamic, dynamic> jsonify = await decryptCloudData(score);
-          score.setContent = jsonEncode(jsonify);
+        toolbox_api.Node structure =
+        await getNode(
+            '$_enterpriseUsers:$_username:$_devicesPairing:$_qrDeviceId');
+      } catch (e) {
+        print("DEVICES PAIRING STRUCTURE FOR $_qrDeviceId DOES NOT EXIST");
+        toolbox_api.Node structure = toolbox_api.NodeImpl(
+            '$_enterpriseUsers:$_username:$_devicesPairing', _replicationAPI);
+        toolbox_api.Node geigerScore = toolbox_api.NodeImpl(
+            '$_enterpriseUsers:$_username:$_devicesPairing:$_qrDeviceId',
+            _replicationAPI);
+        toolbox_api.Visibility? checkerData = toolbox_api.VisibilityExtension
+            .valueOf("amber");
+        if (checkerData != null) {
+          structure.visibility = checkerData;
         }
-        Event device = await cloud.getUserDeviceInfo(_qrUserId,_qrDeviceId);
-        User userQr = await cloud.getUser(_qrUserId);
-        geigerScore.addValue(toolbox_api.NodeValueImpl('userName', userQr.name ?? ""));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('userUUID', _qrUserId));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('deviceName', jsonDecode(device.content!)['custom_fields'][0]['value']));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('deviceType', jsonDecode(device.content!)['custom_fields'][2]['value']));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('sharedGeigerScore', jsonDecode(score.content!)['custom_fields'][0]['value']));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('sharedThreatsScore', jsonDecode(score.content!)['custom_fields'][3]['value']));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('sharedNumberOfMetric', jsonDecode(score.content!)['custom_fields'][2]['value']));
-        geigerScore.addValue(toolbox_api.NodeValueImpl('sharedScoreDate', DateTime.now().toString()));
-        toolbox_api.Visibility? checkerConfig =
-        toolbox_api.VisibilityExtension.valueOf("amber");
-        if (checkerConfig != null) {
-          geigerScore.visibility = checkerConfig;
+        try {
+          Event score = await cloud.getUserGeigerScore(_qrUserId);
+          if (_enableEncryption) {
+            Map<dynamic, dynamic> jsonify = await decryptCloudData(score);
+            score.setContent = jsonEncode(jsonify);
+          }
+          Event device = await cloud.getUserDeviceInfo(_qrUserId, _qrDeviceId);
+          User userQr = await cloud.getUser(_qrUserId);
+          geigerScore.addValue(
+              toolbox_api.NodeValueImpl('userName', userQr.name ?? ""));
+          geigerScore.addValue(
+              toolbox_api.NodeValueImpl('userUUID', _qrUserId));
+          geigerScore.addValue(toolbox_api.NodeValueImpl('deviceName',
+              jsonDecode(device.content!)['custom_fields'][0]['value']));
+          geigerScore.addValue(toolbox_api.NodeValueImpl('deviceType',
+              jsonDecode(device.content!)['custom_fields'][2]['value']));
+          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedGeigerScore',
+              jsonDecode(score.content!)['custom_fields'][0]['value']));
+          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedThreatsScore',
+              jsonDecode(score.content!)['custom_fields'][3]['value']));
+          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedNumberOfMetric',
+              jsonDecode(score.content!)['custom_fields'][2]['value']));
+          geigerScore.addValue(toolbox_api.NodeValueImpl(
+              'sharedScoreDate', DateTime.now().toString()));
+          toolbox_api.Visibility? checkerConfig =
+          toolbox_api.VisibilityExtension.valueOf("amber");
+          if (checkerConfig != null) {
+            geigerScore.visibility = checkerConfig;
+          }
+          structure.addChild(geigerScore);
+          log("NEW ENTERPRISE STRUCTURE " + geigerScore.getValues().toString());
+          await _storageController.addOrUpdate(structure);
+          return true;
+        } catch (e) {
+          print("PAIRING STRUCTURE FAILED TO GET GEIGER SCORE");
+          return false;
         }
-        structure.addChild(geigerScore);
-        log("NEW ENTERPRISE STRUCTURE " + geigerScore.getValues().toString());
-        await _storageController.addOrUpdate(structure);
-        return true;
-      } catch (e){
-        print("PAIRING STRUCTURE FAILED TO GET GEIGER SCORE");
-        return false;
+      }
+    } else {
+      try {
+        toolbox_api.Node structure =
+        await getNode(
+            '$_enterpriseUsers:$_username:$_employeesPairing:$_qrUserId');
+      } catch (e) {
+        print("EMPLOYEES PAIRING STRUCTURE FOR $_qrUserId DOES NOT EXIST");
+        toolbox_api.Node structure = toolbox_api.NodeImpl(
+            '$_enterpriseUsers:$_username:$_employeesPairing', _replicationAPI);
+        toolbox_api.Node geigerScore = toolbox_api.NodeImpl(
+            '$_enterpriseUsers:$_username:$_employeesPairing:$_qrUserId',
+            _replicationAPI);
+        toolbox_api.Visibility? checkerData = toolbox_api.VisibilityExtension
+            .valueOf("amber");
+        if (checkerData != null) {
+          structure.visibility = checkerData;
+        }
+        try {
+          Event score = await cloud.getUserGeigerScore(_qrUserId);
+          if (_enableEncryption) {
+            Map<dynamic, dynamic> jsonify = await decryptCloudData(score);
+            score.setContent = jsonEncode(jsonify);
+          }
+          Event device = await cloud.getUserDeviceInfo(_qrUserId, _qrDeviceId);
+          User userQr = await cloud.getUser(_qrUserId);
+          geigerScore.addValue(
+              toolbox_api.NodeValueImpl('userName', userQr.name ?? ""));
+          geigerScore.addValue(
+              toolbox_api.NodeValueImpl('userUUID', _qrUserId));
+          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedGeigerScore',
+              jsonDecode(score.content!)['custom_fields'][0]['value']));
+          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedNumberOfMetric',
+              jsonDecode(score.content!)['custom_fields'][2]['value']));
+          geigerScore.addValue(toolbox_api.NodeValueImpl(
+              'sharedScoreDate', DateTime.now().toString()));
+          toolbox_api.Visibility? checkerConfig =
+          toolbox_api.VisibilityExtension.valueOf("amber");
+          if (checkerConfig != null) {
+            geigerScore.visibility = checkerConfig;
+          }
+          structure.addChild(geigerScore);
+          log("NEW ENTERPRISE STRUCTURE " + geigerScore.getValues().toString());
+          await _storageController.addOrUpdate(structure);
+          return true;
+        } catch (e) {
+          print("PAIRING STRUCTURE FAILED TO GET GEIGER SCORE");
+          return false;
+        }
       }
     }
+    return false;
   }
 }

@@ -135,5 +135,5 @@ abstract class ReplicationController {
 
   //Future<bool> unpairSupervisor();
 
-  Future<bool> createPairingStructure(String publicKey);
+  Future<bool> createPairingStructure(String publicKey, String type);
 }
