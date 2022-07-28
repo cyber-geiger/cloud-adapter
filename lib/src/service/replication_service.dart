@@ -56,7 +56,6 @@ class ReplicationService implements ReplicationController {
   List<MessageType> _handledEvents = [];
 
   late final String _username, _company, _currentDevice, _currentDeviceName;
-  late final String _qrUserId, _qrDeviceId;
 
   final String _devicesPairing = 'devicesPairing';
   final String _employeesPairing = 'employeesPairing';
@@ -563,12 +562,10 @@ class ReplicationService implements ReplicationController {
       String agreement,
       String type) async {
     print("START SET PAIR METHOD");
-    _qrUserId = qrUserId;
-    _qrDeviceId = qrDeviceId;
 
     // CREATE PAIRING STRUCTURE
     log('[PAIRING STRUCTURE] CREATE PAIRING');
-    await createPairingStructure(publicKey, type);
+    await createPairingStructure(qrUserId, qrDeviceId, publicKey, type);
 
     /// Check if both users in the cloud
     /// second qrUserId (remote) user should be created from the others device
@@ -580,9 +577,9 @@ class ReplicationService implements ReplicationController {
 
     /// CREATES LOCAL PAIRING NODE
     try {
-      toolbox_api.Node agreementNode = await getNode(':Local:Pairing:$_qrUserId');
+      toolbox_api.Node agreementNode = await getNode(':Local:Pairing:$qrUserId');
       print("Node exists for the path:" + agreementNode.path.toString());
-      print("$_username and $_qrUserId are already paired");
+      print("$_username and $qrUserId are already paired");
     } catch (e) {
       print("ERROR CREATING LOCAL PAIRING NODE: "+e.toString());
       try {
@@ -595,7 +592,7 @@ class ReplicationService implements ReplicationController {
         await _storageController.add(agreementParent);
       }
       toolbox_api.Node newAgreement =
-          toolbox_api.NodeImpl(':Local:Pairing:$_qrUserId', _replicationAPI);
+          toolbox_api.NodeImpl(':Local:Pairing:$qrUserId', _replicationAPI);
       newAgreement
           .addOrUpdateValue(toolbox_api.NodeValueImpl("agreement", agreement));
       if (publicKey != null) {
@@ -632,35 +629,37 @@ class ReplicationService implements ReplicationController {
     /// check userId1 agreements
     try {
       List<String> agreeUser1 = await cloud.getMergedAccounts(_username);
-      if (agreeUser1.contains(_qrUserId) == false) {
-        await cloud.createMerge(_username, _qrUserId, agreement, type);
+      if (agreeUser1.contains(qrUserId) == false) {
+        await cloud.createMerge(_username, qrUserId, agreement, type);
       } else {
         print("CLOUD AGREEMENT ALREADY EXIST");
       }
     } catch (e) {
       print("ERROR CREATING MERGE LINE 610 REPLICATION SERVICE: "+e.toString());
-      await cloud.createMerge(_username, _qrUserId, agreement, type);
+      await cloud.createMerge(_username, qrUserId, agreement, type);
     }
     try {
-      List<String> agreeUser2 = await cloud.getMergedAccounts(_qrUserId);
+      List<String> agreeUser2 = await cloud.getMergedAccounts(qrUserId);
       if (agreeUser2.contains(_username) == false) {
-        await cloud.createMerge(_qrUserId, _username, complementValue, type);
+        await cloud.createMerge(qrUserId, _username, complementValue, type);
       } else {
         print("CLOUD AGREEMENT ALREADY EXIST");
       }
     } catch (e) {
       print("ERROR CREATING MERGE LINE 621 REPLICATION SERVICE: "+e.toString());
-      await cloud.createMerge(_qrUserId, _username, complementValue, type);
+      await cloud.createMerge(qrUserId, _username, complementValue, type);
     }
 
     print('GET SHARED NODES BETWEEN PAIRED USERS');
     try{
-      await getSharedNodes(_username, _qrUserId);
+      await getSharedNodes(_username, qrUserId);
     }catch (e){
       print("ERROR GETTING NODES BETWEEN PAIRED USERS LINE 630 REPLICATION SERVICE: "+e.toString());
       return false;
     }
 
+    log("all pairedDevices after all => ${await _storageController.dump('$_enterpriseUsers:$_username:$_devicesPairing')}");
+    log("all pairedEmployees after all => ${await _storageController.dump('$_enterpriseUsers:$_username:$_employeesPairing')}");
     return true;
   }
 
@@ -710,7 +709,7 @@ class ReplicationService implements ReplicationController {
   }
 
   @override
-  Future<bool> unpair(String userId1, String userId2) async {
+  Future<bool> unpair(String userId1, String userId2, String type) async {
     print("START UNPAIR METHOD");
 
     /// deletes local node exists
@@ -719,12 +718,44 @@ class ReplicationService implements ReplicationController {
     /// checks if already merged
     /// userId1 - local user
     /// userId2 - peer partner
-
     /// DELETE LOCAL AGREEMENT
+    late String userQr;
+    if(type.contains('device')) {
+      try {
+        toolbox_api.Node structure =
+        await getNode('$_enterpriseUsers:$_username:$_devicesPairing:$userId2');
+        toolbox_api.NodeValue? userQrNode = await structure.getValue(
+            'userUUID');
+        userQr = userQrNode?.value ?? "";
+        log("userQrNode value is $userQr");
+        log("Local Pairing Before => ${await _storageController.dump(
+            ':Local:Pairing')}");
+      } catch (e) {
+        print("USER NOT FOUND");
+        return false;
+      }
+    } else {
+      try {
+        toolbox_api.Node structure =
+        await getNode('$_enterpriseUsers:$_username:$_employeesPairing:$userId2');
+        toolbox_api.NodeValue? userQrNode = await structure.getValue(
+            'userUUID');
+        userQr = userQrNode?.value ?? "";
+        log("userQrNode value is $userQr");
+        log("Local Pairing Before => ${await _storageController.dump(
+            ':Local:Pairing')}");
+      } catch (e) {
+        print("USER NOT FOUND");
+        return false;
+      }
+    }
+
     try {
-      await _storageController.delete(":Local:Pairing:$userId2");
+      await _storageController.delete(":Local:Pairing:$userQr");
+      log("Local Pairing After => ${await _storageController.dump(
+          ':Local:Pairing')}");
     } catch (e) {
-      print("Pairing Node not found");
+      print("LOCAL PAIRING NODE NOT FOUND");
       return false;
     }
 
@@ -738,10 +769,10 @@ class ReplicationService implements ReplicationController {
       /// IF CONTAINS USERID2 - DELETE AGREEMENT
       try {
         List<String> agreeUser1 = await cloud.getMergedAccounts(userId1);
-        if (agreeUser1.contains(userId2) == true) {
+        if (agreeUser1.contains(userQr) == true) {
           try {
             print("AGREEMENT SET");
-            await cloud.deleteMerged(userId1, userId2);
+            await cloud.deleteMerged(userId1, userQr);
           } catch (e) {
             print("[CLOUD EXCEPTION] SOMETHING WENT WRONG WHEN UNPAIRING.");
             return false;
@@ -754,6 +785,29 @@ class ReplicationService implements ReplicationController {
       }
     }
 
+    if(type.contains('device')) {
+      try {
+        await _storageController.delete(
+            "$_enterpriseUsers:$_username:$_devicesPairing:$userId2");
+        log("Local Enterprise After => ${await _storageController.dump(
+            '$_enterpriseUsers:$_username:$_devicesPairing')}");
+        return true;
+      } catch (e) {
+        return false;
+      }
+    } else {
+      try {
+        await _storageController.delete(
+            "$_enterpriseUsers:$_username:$_employeesPairing:$userId2");
+        log("Local Enterprise After => ${await _storageController.dump(
+            '$_enterpriseUsers:$_username:$_employeesPairing')}");
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* ToDo AHS Remove when nodes are not included
     /// LOOK FOR USERID2 OWNED NODES
     /// CREATE A SEARCH CRITERIA
     toolbox_api.SearchCriteria criteria = toolbox_api.SearchCriteria();
@@ -768,7 +822,7 @@ class ReplicationService implements ReplicationController {
           return false;
         }
       }
-    }
+    } */
     return true;
   }
 
@@ -3066,36 +3120,31 @@ class ReplicationService implements ReplicationController {
 
 
   @override
-  Future<bool> createPairingStructure(String publicKey, String type) async {
+  Future<bool> createPairingStructure(String qrUserId, String qrDeviceId, String publicKey, String type) async {
     if (type.contains('device')) {
       try {
         toolbox_api.Node structure =
         await getNode(
-            '$_enterpriseUsers:$_username:$_devicesPairing:$_qrDeviceId');
+            '$_enterpriseUsers:$_username:$_devicesPairing:$qrDeviceId');
       } catch (e) {
-        print("DEVICES PAIRING STRUCTURE FOR $_qrDeviceId DOES NOT EXIST");
-        toolbox_api.Node structure = toolbox_api.NodeImpl(
-            '$_enterpriseUsers:$_username:$_devicesPairing', _replicationAPI);
+        print("DEVICES PAIRING STRUCTURE FOR $qrDeviceId DOES NOT EXIST");
+        toolbox_api.Node structure = await getNode(
+            '$_enterpriseUsers:$_username:$_devicesPairing');
         toolbox_api.Node geigerScore = toolbox_api.NodeImpl(
-            '$_enterpriseUsers:$_username:$_devicesPairing:$_qrDeviceId',
-            _replicationAPI);
-        toolbox_api.Visibility? checkerData = toolbox_api.VisibilityExtension
-            .valueOf("amber");
-        if (checkerData != null) {
-          structure.visibility = checkerData;
-        }
+            '$_enterpriseUsers:$_username:$_devicesPairing:$qrDeviceId',
+            _devicesPairing);
         try {
-          Event score = await cloud.getUserGeigerScore(_qrUserId);
+          Event score = await cloud.getUserGeigerScore(qrUserId);
           if (_enableEncryption) {
             Map<dynamic, dynamic> jsonify = await decryptCloudData(score);
             score.setContent = jsonEncode(jsonify);
           }
-          Event device = await cloud.getUserDeviceInfo(_qrUserId, _qrDeviceId);
-          User userQr = await cloud.getUser(_qrUserId);
+          Event device = await cloud.getUserDeviceInfo(qrUserId, qrDeviceId);
+          User userQr = await cloud.getUser(qrUserId);
           geigerScore.addValue(
               toolbox_api.NodeValueImpl('userName', userQr.name ?? ""));
           geigerScore.addValue(
-              toolbox_api.NodeValueImpl('userUUID', _qrUserId));
+              toolbox_api.NodeValueImpl('userUUID', qrUserId));
           geigerScore.addValue(toolbox_api.NodeValueImpl('deviceName',
               jsonDecode(device.content!)['custom_fields'][0]['value']));
           geigerScore.addValue(toolbox_api.NodeValueImpl('deviceType',
@@ -3126,31 +3175,26 @@ class ReplicationService implements ReplicationController {
       try {
         toolbox_api.Node structure =
         await getNode(
-            '$_enterpriseUsers:$_username:$_employeesPairing:$_qrUserId');
+            '$_enterpriseUsers:$_username:$_employeesPairing:$qrUserId');
       } catch (e) {
-        print("EMPLOYEES PAIRING STRUCTURE FOR $_qrUserId DOES NOT EXIST");
-        toolbox_api.Node structure = toolbox_api.NodeImpl(
-            '$_enterpriseUsers:$_username:$_employeesPairing', _replicationAPI);
+        print("EMPLOYEES PAIRING STRUCTURE FOR $qrUserId DOES NOT EXIST");
+        toolbox_api.Node structure = await getNode(
+            '$_enterpriseUsers:$_username:$_employeesPairing');
         toolbox_api.Node geigerScore = toolbox_api.NodeImpl(
-            '$_enterpriseUsers:$_username:$_employeesPairing:$_qrUserId',
-            _replicationAPI);
-        toolbox_api.Visibility? checkerData = toolbox_api.VisibilityExtension
-            .valueOf("amber");
-        if (checkerData != null) {
-          structure.visibility = checkerData;
-        }
+            '$_enterpriseUsers:$_username:$_employeesPairing:$qrUserId',
+            _devicesPairing);
         try {
-          Event score = await cloud.getUserGeigerScore(_qrUserId);
+          Event score = await cloud.getUserGeigerScore(qrUserId);
           if (_enableEncryption) {
             Map<dynamic, dynamic> jsonify = await decryptCloudData(score);
             score.setContent = jsonEncode(jsonify);
           }
-          Event device = await cloud.getUserDeviceInfo(_qrUserId, _qrDeviceId);
-          User userQr = await cloud.getUser(_qrUserId);
+          Event device = await cloud.getUserDeviceInfo(qrUserId, qrDeviceId);
+          User userQr = await cloud.getUser(qrUserId);
           geigerScore.addValue(
               toolbox_api.NodeValueImpl('userName', userQr.name ?? ""));
           geigerScore.addValue(
-              toolbox_api.NodeValueImpl('userUUID', _qrUserId));
+              toolbox_api.NodeValueImpl('userUUID', qrUserId));
           geigerScore.addValue(toolbox_api.NodeValueImpl('sharedGeigerScore',
               jsonDecode(score.content!)['custom_fields'][0]['value']));
           geigerScore.addValue(toolbox_api.NodeValueImpl('sharedNumberOfMetric',

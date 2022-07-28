@@ -55,7 +55,7 @@ abstract class ReplicationController {
   Future<bool> updatePair(String userId1);
 
   /// Removes both from the local and the cloud, the agreement
-  Future<bool> unpair(String userId1, String userId2);
+  Future<bool> unpair(String userId1, String userId2, String type);
 
   /// Places a node in the cloud encrypted
   Future<bool> shareNode(
@@ -135,5 +135,5 @@ abstract class ReplicationController {
 
   //Future<bool> unpairSupervisor();
 
-  Future<bool> createPairingStructure(String publicKey, String type);
+  Future<bool> createPairingStructure(String qrUserId, String qrDeviceId, String publicKey, String type);
 }
