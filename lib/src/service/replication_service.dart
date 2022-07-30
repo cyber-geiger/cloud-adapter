@@ -3202,7 +3202,7 @@ class ReplicationService implements ReplicationController {
         // toolbox_api.Node structure =
         //     await getNode('$_enterpriseUsers:$_username:$_devicesPairing');
 
-        //this qrDeviceId node will automatically be appended to devicesPairing nod
+        //this qrDeviceId node will automatically be appended to the devicesPairing node
         toolbox_api.Node geigerScore = toolbox_api.NodeImpl(
             '$_enterpriseUsers:$_username:$_devicesPairing:$qrDeviceId',
             _devicesPairing);
@@ -3239,10 +3239,10 @@ class ReplicationService implements ReplicationController {
             geigerScore.visibility = checkerConfig;
           }
 
-          log("NEW ENTERPRISE STRUCTURE ${await geigerScore.getValues()}");
-
           //addorUpdate geigerScore node
           await _storageController.addOrUpdate(geigerScore);
+
+          log("NEW ENTERPRISE STRUCTURE ${await geigerScore.getValues()}");
 
           // await _storageController.addOrUpdate(structure);
           return true;
@@ -3257,8 +3257,12 @@ class ReplicationService implements ReplicationController {
             '$_enterpriseUsers:$_username:$_employeesPairing:$qrUserId');
       } catch (e) {
         print("EMPLOYEES PAIRING STRUCTURE FOR $qrUserId DOES NOT EXIST");
-        toolbox_api.Node structure =
-            await getNode('$_enterpriseUsers:$_username:$_employeesPairing');
+
+        //not needed, this node already exist
+        // toolbox_api.Node structure =
+        //     await getNode('$_enterpriseUsers:$_username:$_employeesPairing');
+
+        //this qrUserId node will automatically be appended to the employeesPairing node
         toolbox_api.Node geigerScore = toolbox_api.NodeImpl(
             '$_enterpriseUsers:$_username:$_employeesPairing:$qrUserId',
             _devicesPairing);
@@ -3272,21 +3276,29 @@ class ReplicationService implements ReplicationController {
           User userQr = await cloud.getUser(qrUserId);
           geigerScore.addValue(
               toolbox_api.NodeValueImpl('userName', userQr.name ?? ""));
-          geigerScore.addValue(toolbox_api.NodeValueImpl('userUUID', qrUserId));
-          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedGeigerScore',
+          geigerScore.addOrUpdateValue(
+              toolbox_api.NodeValueImpl('userUUID', qrUserId));
+          geigerScore.addOrUpdateValue(toolbox_api.NodeValueImpl(
+              'sharedGeigerScore',
               jsonDecode(score.content!)['custom_fields'][0]['value']));
-          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedNumberOfMetric',
+          geigerScore.addOrUpdateValue(toolbox_api.NodeValueImpl(
+              'sharedNumberOfMetric',
               jsonDecode(score.content!)['custom_fields'][2]['value']));
-          geigerScore.addValue(toolbox_api.NodeValueImpl(
+          geigerScore.addOrUpdateValue(toolbox_api.NodeValueImpl(
               'sharedScoreDate', DateTime.now().toString()));
           toolbox_api.Visibility? checkerConfig =
               toolbox_api.VisibilityExtension.valueOf("amber");
           if (checkerConfig != null) {
             geigerScore.visibility = checkerConfig;
           }
-          structure.addChild(geigerScore);
-          log("NEW ENTERPRISE STRUCTURE " + geigerScore.getValues().toString());
-          await _storageController.addOrUpdate(structure);
+
+          //structure.addChild(geigerScore);
+          log("NEW ENTERPRISE STRUCTURE + ${await geigerScore.getValues()}");
+          //await _storageController.addOrUpdate(structure);
+
+          //addorUpdate geigerScore node
+          await _storageController.addOrUpdate(geigerScore);
+
           return true;
         } catch (e) {
           print("PAIRING STRUCTURE FAILED TO GET GEIGER SCORE");
