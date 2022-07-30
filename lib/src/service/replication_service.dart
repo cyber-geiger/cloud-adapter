@@ -1,38 +1,34 @@
 library geiger_replication;
 
-import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-
-// ignore: library_prefixes
-import 'package:encrypt/encrypt.dart' as Enc;
-import 'package:uuid/uuid.dart';
-import 'package:intl/intl.dart';
-import 'package:intl/locale.dart';
+import 'dart:io';
 
 import 'package:cloud_replication_package/src/cloud_models/recommendation.dart';
 import 'package:cloud_replication_package/src/cloud_models/security_defender_user.dart';
 import 'package:cloud_replication_package/src/cloud_models/security_defenders_organization.dart';
-import 'package:cloud_replication_package/src/cloud_models/user.dart';
-import '../cloud_models/threats.dart';
-import '../cloud_models/event.dart';
-import '../cloud_models/company_event.dart';
-import '../cloud_models/short_user.dart';
-import '../cloud_models/geiger_score.dart';
-import 'package:cloud_replication_package/src/replication_exception.dart';
-import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 import 'package:cloud_replication_package/src/cloud_models/threat_dict.dart';
 import 'package:cloud_replication_package/src/cloud_models/threat_weights.dart';
+import 'package:cloud_replication_package/src/cloud_models/user.dart';
+import 'package:cloud_replication_package/src/replication_exception.dart';
+import 'package:cloud_replication_package/src/service/cloud_service/cloud_exception.dart';
 import 'package:cloud_replication_package/src/service/cloud_service/cloud_service.dart';
-
-import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
+// ignore: library_prefixes
+import 'package:encrypt/encrypt.dart' as Enc;
 import 'package:geiger_api/geiger_api.dart';
+import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
+import 'package:intl/intl.dart';
+import 'package:intl/locale.dart';
+import 'package:uuid/uuid.dart';
 
+import '../cloud_models/company_event.dart';
+import '../cloud_models/event.dart';
+import '../cloud_models/short_user.dart';
+import '../cloud_models/threats.dart';
+import '../replication_controller.dart';
 import 'node_listener.dart';
 import 'replication_message_listener.dart';
-
-import '../replication_controller.dart';
 
 class ReplicationService implements ReplicationController {
   /// Cloud Service
@@ -86,7 +82,7 @@ class ReplicationService implements ReplicationController {
   //STRING LIST OF COMPANY EVENTS;
   List<String> companyEvents = [];
 
-  String sharedScore = '',username = '', sharedScoreDate = '';
+  String sharedScore = '', username = '', sharedScoreDate = '';
 
   ReplicationService();
 
@@ -103,7 +99,7 @@ class ReplicationService implements ReplicationController {
         return false;
       }
     } on SocketException catch (e) {
-      print(__debugLine + 'EXCEPTION: '+e.toString());
+      print(__debugLine + 'EXCEPTION: ' + e.toString());
       print(e);
       return false;
     }
@@ -118,7 +114,7 @@ class ReplicationService implements ReplicationController {
           await getNode(':Local:Replication:LastReplication');
       return true;
     } catch (e) {
-      print(__debugLine + 'EXCEPTION: '+e.toString());
+      print(__debugLine + 'EXCEPTION: ' + e.toString());
       return false;
     }
   }
@@ -179,7 +175,8 @@ class ReplicationService implements ReplicationController {
         _fromDate = _lastTimestamp;
       }
     } catch (e) {
-      print('NO REPLICATION NODE FOUND - NO REPLICATION HAS BEEN DONE: '+e.toString());
+      print('NO REPLICATION NODE FOUND - NO REPLICATION HAS BEEN DONE: ' +
+          e.toString());
 
       /// FULL REPLICATION TAKES PLACE
       _fullRep = true;
@@ -198,14 +195,19 @@ class ReplicationService implements ReplicationController {
       bool exists = await cloud.userExists(_username.toString());
       //print(exists.toString());
       if (exists == false) {
-        toolbox_api.Node localUser = await getNode(':Enterprise:Users:$_localUser');
-        String name = await localUser.getValue('name').then((value) => value!.getValue("en").toString());
-        await cloud.createUser(_username.toString(),name=name);
+        toolbox_api.Node localUser =
+            await getNode(':Enterprise:Users:$_localUser');
+        String name = await localUser
+            .getValue('name')
+            .then((value) => value!.getValue("en").toString());
+        await cloud.createUser(_username.toString(), name = name);
+
         /// FULL REPLICATION TAKES PLACE
         _fullRep = true;
       }
     } catch (e) {
-      toolbox_api.StorageException('USER DATA NOT FOUND. ERROR: '+e.toString());
+      toolbox_api.StorageException(
+          'USER DATA NOT FOUND. ERROR: ' + e.toString());
       print(e);
       return false;
     }
@@ -213,11 +215,13 @@ class ReplicationService implements ReplicationController {
 
     /// CLOUD TO LOCAL REPLICATION
     print("[2nd FLOW] - CLOUD TO LOCAL");
-    await cloudToLocalReplication(_username, _actual, _fromDate, _fullRep, _enableEncryption);
+    await cloudToLocalReplication(
+        _username, _actual, _fromDate, _fullRep, _enableEncryption);
 
     /// LOCAL TO CLOUD REPLICATION
     print("[3rd FLOW] - LOCAL TO CLOUD");
-    await localToCloudReplication(_username, _actual, _fromDate, _fullRep, _enableEncryption);
+    await localToCloudReplication(
+        _username, _actual, _fromDate, _fullRep, _enableEncryption);
 
     /// UPDATE WHEN LAST REPLICATION TOOK PLACE
     print("[4th FLOW] - UPDATE WHEN LAST REPLICATION TOOK PLACE");
@@ -260,9 +264,8 @@ class ReplicationService implements ReplicationController {
       await updateCompanyEvents();
 
       result = true;
-
     } catch (e) {
-      print("[UPDATE GLOBAL DATA EXCEPTION]: "+e.toString());
+      print("[UPDATE GLOBAL DATA EXCEPTION]: " + e.toString());
       print(e);
     }
     return result;
@@ -317,7 +320,8 @@ class ReplicationService implements ReplicationController {
       String owner = singleOne.owner.toString();
       if (owner != _username) {
         if (type.toLowerCase() == "keyvalue") {
-          print('CLOUD TO LOCAL REPLICATION - NO E2EE - FUNCTION cloudToLocalReplication');
+          print(
+              'CLOUD TO LOCAL REPLICATION - NO E2EE - FUNCTION cloudToLocalReplication');
           toolbox_api.Node node = convertJsonStringToNode(singleOne.content!);
           await updateLocalNodeWithCloudNode(node, _username);
         }
@@ -328,29 +332,30 @@ class ReplicationService implements ReplicationController {
             try {
               Map<dynamic, dynamic> jsonify = await decryptCloudData(singleOne);
               singleOne.setContent = jsonEncode(jsonify);
-              toolbox_api.Node node = convertJsonStringToNode(
-                  singleOne.content!);
+              toolbox_api.Node node =
+                  convertJsonStringToNode(singleOne.content!);
               await checkParents(node.path);
               await updateLocalNodeWithCloudNode(node, _username);
             } catch (e) {
-              print("ERROR DURING CLOUD TO LOCAL REPLICATION E2EE:"+ e.toString());
+              print("ERROR DURING CLOUD TO LOCAL REPLICATION E2EE:" +
+                  e.toString());
 
               /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
               waitingEvents.add(singleOne);
               print(
                   'FAILURE GETTING KEYS FOR NODE - FUNCTION cloudToLocalReplication ID-EVENT: $id');
             }
-          }
-          else{
+          } else {
             try {
               print(
                   'CLOUD TO LOCAL REPLICATION - NO ENCRYPTION ENABLED - FUNCTION cloudToLocalReplication');
-              toolbox_api.Node node = convertJsonStringToNode(
-                  singleOne.content!);
+              toolbox_api.Node node =
+                  convertJsonStringToNode(singleOne.content!);
               await checkParents(node.path);
               await updateLocalNodeWithCloudNode(node, _username);
-            } catch (e){
-              print("ERROR WITHIN FUNCTION cloudToLocalReplication LINE 328: "+e.toString());
+            } catch (e) {
+              print("ERROR WITHIN FUNCTION cloudToLocalReplication LINE 328: " +
+                  e.toString());
               waitingEvents.add(singleOne);
             }
           }
@@ -372,12 +377,15 @@ class ReplicationService implements ReplicationController {
         await updateLocalNodeWithCloudNode(node, _username);
       } catch (e) {
         print(e);
-        print('FAILURE GETTING KEYS FOR NODE - FUNCTION cloudToLocalReplication: $waitingId');
+        print(
+            'FAILURE GETTING KEYS FOR NODE - FUNCTION cloudToLocalReplication: $waitingId');
         try {
           toolbox_api.Node node = convertJsonStringToNode(waiting.content!);
           await updateLocalNodeWithCloudNode(node, _username);
         } catch (e) {
-          print("GET SHARED NODES FAILURE - FUNCTION cloudToLocalReplication: "+e.toString());
+          print(
+              "GET SHARED NODES FAILURE - FUNCTION cloudToLocalReplication: " +
+                  e.toString());
           print(e.toString());
         }
       }
@@ -388,7 +396,8 @@ class ReplicationService implements ReplicationController {
 
   Future<void> localToCloudReplication(String _username, DateTime _actual,
       DateTime _fromDate, bool _fullRep, bool _enableEncryption) async {
-    print("REPLICATION - LOCAL TO CLOUD NODES REPLICATION - FUNCTION localToCloudReplication");
+    print(
+        "REPLICATION - LOCAL TO CLOUD NODES REPLICATION - FUNCTION localToCloudReplication");
 
     /// START OF THE SECOND DIAGRAM
     /// START CLEANING DATA AND REMOVING TOMBSTONES
@@ -442,11 +451,11 @@ class ReplicationService implements ReplicationController {
             }
           }
         } catch (e) {
-          print("ERROR GETTING SINGLE USER EVENT: "+e.toString());
+          print("ERROR GETTING SINGLE USER EVENT: " + e.toString());
         }
       }
     } catch (e) {
-      print("ERROR GETTING CLOUD USER EVENTS: "+e.toString());
+      print("ERROR GETTING CLOUD USER EVENTS: " + e.toString());
     }
 
     if (nodeList.isEmpty == false) {
@@ -469,10 +478,10 @@ class ReplicationService implements ReplicationController {
             sorted.tombstone == false) {
           if (tlp.toLowerCase() == 'red') {
             print("TLP:RED NODE");
-            if(_enableEncryption) {
+            if (_enableEncryption) {
               try {
                 Map<dynamic, dynamic> convertedNode =
-                await encryptCloudData(sorted);
+                    await encryptCloudData(sorted);
                 toCheck.content = json.encode(convertedNode);
               } catch (e) {
                 print(e);
@@ -480,19 +489,26 @@ class ReplicationService implements ReplicationController {
                     json.encode(await convertNodeToJsonString(sorted));
                 print('FAILURE GETTING KEYS');
               }
+
               /// ToDo find aggregate score y change node type
               toCheck.type = 'user_object';
+
               /// ToDo find key to decrypt data
               //toCheck.keyValue = "key";
             } else {
-              toCheck.type = (sorted.name.toLowerCase() == 'geigerscoreaggregate') ?
-              'aggregate_score' : 'user_object';
-              toCheck.content = json.encode(await convertNodeToJsonString(sorted));
+              toCheck.type =
+                  (sorted.name.toLowerCase() == 'geigerscoreaggregate')
+                      ? 'aggregate_score'
+                      : 'user_object';
+              toCheck.content =
+                  json.encode(await convertNodeToJsonString(sorted));
             }
           } else {
-            toCheck.type = (sorted.name.toLowerCase() == 'geigerscoreaggregate') ?
-            'aggregate_score' : 'user_object';
-            toCheck.content = json.encode(await convertNodeToJsonString(sorted));
+            toCheck.type = (sorted.name.toLowerCase() == 'geigerscoreaggregate')
+                ? 'aggregate_score'
+                : 'user_object';
+            toCheck.content =
+                json.encode(await convertNodeToJsonString(sorted));
           }
           toCheck.owner = _username;
           //CHECK IF EVENT IN CLOUD
@@ -521,7 +537,8 @@ class ReplicationService implements ReplicationController {
             print(e);
             print("CATCH");
             print("ADD LOCAL NODE TO CLOUD");
-            print("ERROR checkin if the event is in the cloud: "+e.toString());
+            print(
+                "ERROR checkin if the event is in the cloud: " + e.toString());
             // IF NO EVENT IS RETURNED -> POST NEW EVENT
             await cloud.createEvent(_username, toCheck);
           }
@@ -543,24 +560,22 @@ class ReplicationService implements ReplicationController {
       print("Agreement exist: " + agreementNode.name);
       checker = true;
     } catch (e) {
-      print("PAIRING NODE NOT FOUND: "+e.toString());
+      print("PAIRING NODE NOT FOUND: " + e.toString());
       checker = false;
     }
     return checker;
   }
 
   @override
+
   /// INFO 		 					              --- QR
   /// PAIRING USER 					          --- qrUserId
   /// PAIR DeviceId					          --- qrDeviceId
   /// public key   					          --- publicKey
   /// agreement    					          --- {"in","out","both"}
   /// type                            --- device / employee
-  Future<bool> setPair(String qrUserId,
-      String qrDeviceId,
-      String publicKey,
-      String agreement,
-      String type) async {
+  Future<bool> setPair(String qrUserId, String qrDeviceId, String publicKey,
+      String agreement, String type) async {
     print("START SET PAIR METHOD");
 
     // CREATE PAIRING STRUCTURE
@@ -577,11 +592,12 @@ class ReplicationService implements ReplicationController {
 
     /// CREATES LOCAL PAIRING NODE
     try {
-      toolbox_api.Node agreementNode = await getNode(':Local:Pairing:$qrUserId');
+      toolbox_api.Node agreementNode =
+          await getNode(':Local:Pairing:$qrUserId');
       print("Node exists for the path:" + agreementNode.path.toString());
       print("$_username and $qrUserId are already paired");
     } catch (e) {
-      print("ERROR CREATING LOCAL PAIRING NODE: "+e.toString());
+      print("ERROR CREATING LOCAL PAIRING NODE: " + e.toString());
       try {
         toolbox_api.Node agreementParent = await getNode(':Local:Pairing');
         print("Parent path exists: " + agreementParent.name.toString());
@@ -635,7 +651,8 @@ class ReplicationService implements ReplicationController {
         print("CLOUD AGREEMENT ALREADY EXIST");
       }
     } catch (e) {
-      print("ERROR CREATING MERGE LINE 610 REPLICATION SERVICE: "+e.toString());
+      print(
+          "ERROR CREATING MERGE LINE 610 REPLICATION SERVICE: " + e.toString());
       await cloud.createMerge(_username, qrUserId, agreement, type);
     }
     try {
@@ -646,15 +663,18 @@ class ReplicationService implements ReplicationController {
         print("CLOUD AGREEMENT ALREADY EXIST");
       }
     } catch (e) {
-      print("ERROR CREATING MERGE LINE 621 REPLICATION SERVICE: "+e.toString());
+      print(
+          "ERROR CREATING MERGE LINE 621 REPLICATION SERVICE: " + e.toString());
       await cloud.createMerge(qrUserId, _username, complementValue, type);
     }
 
     print('GET SHARED NODES BETWEEN PAIRED USERS');
-    try{
+    try {
       await getSharedNodes(_username, qrUserId);
-    }catch (e){
-      print("ERROR GETTING NODES BETWEEN PAIRED USERS LINE 630 REPLICATION SERVICE: "+e.toString());
+    } catch (e) {
+      print(
+          "ERROR GETTING NODES BETWEEN PAIRED USERS LINE 630 REPLICATION SERVICE: " +
+              e.toString());
       return false;
     }
 
@@ -678,7 +698,8 @@ class ReplicationService implements ReplicationController {
           // ignore: unused_local_variable
           toolbox_api.Node replicationParent = await getNode(':Local:Pairing');
         } catch (e) {
-          print("ERROR CHECKING PARING NODE LINE 649 REPLICATION SERVICE: "+e.toString());
+          print("ERROR CHECKING PARING NODE LINE 649 REPLICATION SERVICE: " +
+              e.toString());
           toolbox_api.Node replicationParent =
               toolbox_api.NodeImpl(':Local:Pairing', _replicationAPI);
           await _storageController.add(replicationParent);
@@ -720,30 +741,28 @@ class ReplicationService implements ReplicationController {
     /// userId2 - peer partner
     /// DELETE LOCAL AGREEMENT
     late String userQr;
-    if(type.contains('device')) {
+    if (type.contains('device')) {
       try {
-        toolbox_api.Node structure =
-        await getNode('$_enterpriseUsers:$_username:$_devicesPairing:$userId2');
-        toolbox_api.NodeValue? userQrNode = await structure.getValue(
-            'userUUID');
+        toolbox_api.Node structure = await getNode(
+            '$_enterpriseUsers:$_username:$_devicesPairing:$userId2');
+        toolbox_api.NodeValue? userQrNode =
+            await structure.getValue('userUUID');
         userQr = userQrNode?.value ?? "";
         log("userQrNode value is $userQr");
-        log("Local Pairing Before => ${await _storageController.dump(
-            ':Local:Pairing')}");
+        log("Local Pairing Before => ${await _storageController.dump(':Local:Pairing')}");
       } catch (e) {
         print("USER NOT FOUND");
         return false;
       }
     } else {
       try {
-        toolbox_api.Node structure =
-        await getNode('$_enterpriseUsers:$_username:$_employeesPairing:$userId2');
-        toolbox_api.NodeValue? userQrNode = await structure.getValue(
-            'userUUID');
+        toolbox_api.Node structure = await getNode(
+            '$_enterpriseUsers:$_username:$_employeesPairing:$userId2');
+        toolbox_api.NodeValue? userQrNode =
+            await structure.getValue('userUUID');
         userQr = userQrNode?.value ?? "";
         log("userQrNode value is $userQr");
-        log("Local Pairing Before => ${await _storageController.dump(
-            ':Local:Pairing')}");
+        log("Local Pairing Before => ${await _storageController.dump(':Local:Pairing')}");
       } catch (e) {
         print("USER NOT FOUND");
         return false;
@@ -752,8 +771,7 @@ class ReplicationService implements ReplicationController {
 
     try {
       await _storageController.delete(":Local:Pairing:$userQr");
-      log("Local Pairing After => ${await _storageController.dump(
-          ':Local:Pairing')}");
+      log("Local Pairing After => ${await _storageController.dump(':Local:Pairing')}");
     } catch (e) {
       print("LOCAL PAIRING NODE NOT FOUND");
       return false;
@@ -785,22 +803,20 @@ class ReplicationService implements ReplicationController {
       }
     }
 
-    if(type.contains('device')) {
+    if (type.contains('device')) {
       try {
-        await _storageController.delete(
-            "$_enterpriseUsers:$_username:$_devicesPairing:$userId2");
-        log("Local Enterprise After => ${await _storageController.dump(
-            '$_enterpriseUsers:$_username:$_devicesPairing')}");
+        await _storageController
+            .delete("$_enterpriseUsers:$_username:$_devicesPairing:$userId2");
+        log("Local Enterprise After => ${await _storageController.dump('$_enterpriseUsers:$_username:$_devicesPairing')}");
         return true;
       } catch (e) {
         return false;
       }
     } else {
       try {
-        await _storageController.delete(
-            "$_enterpriseUsers:$_username:$_employeesPairing:$userId2");
-        log("Local Enterprise After => ${await _storageController.dump(
-            '$_enterpriseUsers:$_username:$_employeesPairing')}");
+        await _storageController
+            .delete("$_enterpriseUsers:$_username:$_employeesPairing:$userId2");
+        log("Local Enterprise After => ${await _storageController.dump('$_enterpriseUsers:$_username:$_employeesPairing')}");
         return true;
       } catch (e) {
         return false;
@@ -917,7 +933,8 @@ class ReplicationService implements ReplicationController {
     /// cloud API retrieves also the shared ones
     /// check the Event owner to differenciate
     try {
-      print("GET SHARED NODES BETWEEN TWO PAIRED USER/DEVICE - FUNCTION getSharedNodes");
+      print(
+          "GET SHARED NODES BETWEEN TWO PAIRED USER/DEVICE - FUNCTION getSharedNodes");
       toolbox_api.Node node = await getNode(':Local:Pairing:$senderUserId');
       String encryptedKey = await node
           .getValue('key')
@@ -965,7 +982,8 @@ class ReplicationService implements ReplicationController {
               if (owner != receiverUserId) {
                 if (newEvent.content != null) {
                   if (type!.toLowerCase() == "keyvalue") {
-                    print('CLOUD TO LOCAL REPLICATION - NO E2EE - FUNCTION getSharedNodes');
+                    print(
+                        'CLOUD TO LOCAL REPLICATION - NO E2EE - FUNCTION getSharedNodes');
                     toolbox_api.Node node =
                         convertJsonStringToNode(newEvent.content!);
                     await checkParents(node.path);
@@ -977,22 +995,95 @@ class ReplicationService implements ReplicationController {
                     for (var entry in nodeData.entries) {
                       pairedNode.addOrUpdateValue(entry.value);
                     }
-                    print("[PAIRING 1] NODE TO BE UPDATED - FUNCTION getSharedNodes");
+                    print(
+                        "[PAIRING 1] NODE TO BE UPDATED - FUNCTION getSharedNodes");
                     print(pairedNode);
-                    await updateLocalNodeWithCloudNode(pairedNode, _devicesPairing);
+                    await updateLocalNodeWithCloudNode(
+                        pairedNode, _devicesPairing);
                   }
                   if (type.toLowerCase() == "user_object") {
-                    print('CLOUD TO LOCAL REPLICATION - E2EE - FUNCTION getSharedNodes');
-                    if(_enableEncryption){
+                    print(
+                        'CLOUD TO LOCAL REPLICATION - E2EE - FUNCTION getSharedNodes');
+                    if (_enableEncryption) {
                       try {
+                        ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
+                        ///ELSE CREATE A NODE WITH VISIBILITY AMBER
+                        ///AND REPLICATE
+                        Map<dynamic, dynamic> jsonify =
+                            await decryptCloudData(newEvent);
+                        newEvent.setContent = jsonEncode(jsonify);
+                        toolbox_api.Node node =
+                            convertJsonStringToNode(newEvent.content!);
+                        await checkParents(node.path);
+                        toolbox_api.Node pairedNode =
+                            toolbox_api.NodeImpl(node.path, _devicesPairing);
+                        pairedNode.visibility = node.visibility;
+                        Map<String, toolbox_api.NodeValue> nodeData =
+                            await node.getValues();
+                        for (var entry in nodeData.entries) {
+                          pairedNode.addOrUpdateValue(entry.value);
+                        }
+                        print(
+                            "[PAIRING 2] NODE TO BE UPDATED - FUNCTION getSharedNodes");
+                        print(pairedNode);
+                        await updateLocalNodeWithCloudNode(
+                            pairedNode, _devicesPairing);
+                      } catch (e) {
+                        /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
+                        waitingEvents.add(newEvent);
+                        print(
+                            'FAILURE GETTING KEYS FOR NODE - FUNCTION getSharedNodes: $id');
+                        print(newEvent);
+                      }
+                    } else {
+                      try {
+                        toolbox_api.Node node =
+                            convertJsonStringToNode(newEvent.content!);
+                        await checkParents(node.path);
+                        toolbox_api.Node pairedNode =
+                            toolbox_api.NodeImpl(node.path, _devicesPairing);
+                        pairedNode.visibility = node.visibility;
+                        Map<String, toolbox_api.NodeValue> nodeData =
+                            await node.getValues();
+                        for (var entry in nodeData.entries) {
+                          pairedNode.addOrUpdateValue(entry.value);
+                        }
+                        print(
+                            "[PAIRING 2] NODE TO BE UPDATED - FUNCTION getSharedNodes");
+                        print(pairedNode);
+                        await updateLocalNodeWithCloudNode(
+                            pairedNode, _devicesPairing);
+                      } catch (e) {
+                        /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
+                        waitingEvents.add(newEvent);
+                        print('ERROR WITHIN FUNCTION getSharedNodes: $id :' +
+                            e.toString());
+                        print(newEvent);
+                      }
+                    }
+                  }
+                } else {
+                  print(
+                      "THE OWNER OF THE SHARED NODE IS - FUNCTION getSharedNodes: " +
+                          owner!);
+                }
+              }
+              for (var waiting in waitingEvents) {
+                print("STARTING WAITING EVENTS - FUNCTION getSharedNodes");
+                String waitingId = waiting.id_event.toString();
+                var owner = waiting.getOwner;
+                if (owner != receiverUserId) {
+                  print("WAITING EVENT - FUNCTION getSharedNodes: $waitingId");
+                  if (_enableEncryption) {
+                    try {
                       ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
                       ///ELSE CREATE A NODE WITH VISIBILITY AMBER
                       ///AND REPLICATE
                       Map<dynamic, dynamic> jsonify =
-                          await decryptCloudData(newEvent);
-                      newEvent.setContent = jsonEncode(jsonify);
+                          await decryptCloudData(waiting);
+                      waiting.setContent = jsonEncode(jsonify);
                       toolbox_api.Node node =
-                          convertJsonStringToNode(newEvent.content!);
+                          convertJsonStringToNode(waiting.content!);
                       await checkParents(node.path);
                       toolbox_api.Node pairedNode =
                           toolbox_api.NodeImpl(node.path, _devicesPairing);
@@ -1002,96 +1093,36 @@ class ReplicationService implements ReplicationController {
                       for (var entry in nodeData.entries) {
                         pairedNode.addOrUpdateValue(entry.value);
                       }
-                      print("[PAIRING 2] NODE TO BE UPDATED - FUNCTION getSharedNodes");
+                      print(
+                          "[PAIRING 3] NODE TO BE UPDATED - FUNCTION getSharedNodes");
                       print(pairedNode);
                       await updateLocalNodeWithCloudNode(
                           pairedNode, _devicesPairing);
-                      } catch (e) {
-                        /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
-                        waitingEvents.add(newEvent);
-                        print('FAILURE GETTING KEYS FOR NODE - FUNCTION getSharedNodes: $id');
-                        print(newEvent);
-                      }
-                    } else {
-                      try {
-                        toolbox_api.Node node =
-                        convertJsonStringToNode(newEvent.content!);
-                        await checkParents(node.path);
-                        toolbox_api.Node pairedNode =
-                        toolbox_api.NodeImpl(node.path, _devicesPairing);
-                        pairedNode.visibility = node.visibility;
-                        Map<String, toolbox_api.NodeValue> nodeData =
-                        await node.getValues();
-                        for (var entry in nodeData.entries) {
-                          pairedNode.addOrUpdateValue(entry.value);
-                        }
-                        print("[PAIRING 2] NODE TO BE UPDATED - FUNCTION getSharedNodes");
-                        print(pairedNode);
-                        await updateLocalNodeWithCloudNode( pairedNode, _devicesPairing);
-                      } catch (e) {
-                        /// KAY MAY NOT BE REPLICATED YET - CREATE NEW LIST AND DO SAME OPERATION
-                        waitingEvents.add(newEvent);
-                        print('ERROR WITHIN FUNCTION getSharedNodes: $id :'+ e.toString());
-                        print(newEvent);
-                      }
-                    }
-                  }
-                } else {
-                  print("THE OWNER OF THE SHARED NODE IS - FUNCTION getSharedNodes: " + owner!);
-                }
-              }
-              for (var waiting in waitingEvents) {
-                print("STARTING WAITING EVENTS - FUNCTION getSharedNodes");
-                String waitingId = waiting.id_event.toString();
-                var owner = waiting.getOwner;
-                if (owner != receiverUserId) {
-                  print("WAITING EVENT - FUNCTION getSharedNodes: $waitingId");
-                  if(_enableEncryption) {
-                    try {
-                      ///CREATE A SEARCH CRITERIA TO FIND KEY WITH GIVEN PATH
-                      ///ELSE CREATE A NODE WITH VISIBILITY AMBER
-                      ///AND REPLICATE
-                      Map<dynamic, dynamic> jsonify = await decryptCloudData(
-                        waiting);
-                      waiting.setContent = jsonEncode(jsonify);
-                      toolbox_api.Node node =
-                        convertJsonStringToNode(waiting.content!);
-                      await checkParents(node.path);
-                      toolbox_api.Node pairedNode =
-                      toolbox_api.NodeImpl(node.path, _devicesPairing);
-                      pairedNode.visibility = node.visibility;
-                      Map<String, toolbox_api.NodeValue> nodeData =
-                      await node.getValues();
-                      for (var entry in nodeData.entries) {
-                        pairedNode.addOrUpdateValue(entry.value);
-                      }
-                      print(
-                        "[PAIRING 3] NODE TO BE UPDATED - FUNCTION getSharedNodes");
-                      print(pairedNode);
-                      await updateLocalNodeWithCloudNode(
-                        pairedNode, _devicesPairing);
                     } catch (e) {
                       print(
-                        'WAITING EVENTS - FAILURE GETTING KEYS FOR NODE - FUNCTION getSharedNodes: $waitingId');
+                          'WAITING EVENTS - FAILURE GETTING KEYS FOR NODE - FUNCTION getSharedNodes: $waitingId');
                     }
                   } else {
                     try {
                       toolbox_api.Node node =
-                        convertJsonStringToNode(waiting.content!);
+                          convertJsonStringToNode(waiting.content!);
                       await checkParents(node.path);
                       toolbox_api.Node pairedNode =
-                      toolbox_api.NodeImpl(node.path, _devicesPairing);
+                          toolbox_api.NodeImpl(node.path, _devicesPairing);
                       pairedNode.visibility = node.visibility;
                       Map<String, toolbox_api.NodeValue> nodeData =
-                      await node.getValues();
+                          await node.getValues();
                       for (var entry in nodeData.entries) {
                         pairedNode.addOrUpdateValue(entry.value);
                       }
-                      print("[PAIRING 4] NODE TO BE UPDATED - FUNCTION getSharedNodes");
+                      print(
+                          "[PAIRING 4] NODE TO BE UPDATED - FUNCTION getSharedNodes");
                       print(pairedNode);
-                      await updateLocalNodeWithCloudNode(pairedNode, _devicesPairing);
+                      await updateLocalNodeWithCloudNode(
+                          pairedNode, _devicesPairing);
                     } catch (e) {
-                      print("GET SHARED NODES FAILURE - FUNCTION getSharedNodes");
+                      print(
+                          "GET SHARED NODES FAILURE - FUNCTION getSharedNodes");
                       print(e.toString());
                     }
                   }
@@ -1141,7 +1172,7 @@ class ReplicationService implements ReplicationController {
       _storageController = api.storage;
       print(_storageController);
     } catch (e) {
-      print("DATABASE CONNECTION ERROR FROM LOCALSTORAGE: "+e.toString());
+      print("DATABASE CONNECTION ERROR FROM LOCALSTORAGE: " + e.toString());
       rethrow;
     }
     print("END INIT GEIGER STORAGE");
@@ -2300,29 +2331,31 @@ class ReplicationService implements ReplicationController {
         _company = await local
             .getValue('company')
             .then((value) => value!.getValue("en").toString());
-      } catch(e) {
+      } catch (e) {
         _company = 'montimage-company-id';
       }
       companyEvents = await cloud.getCompanyEvents(_company);
-      print("COMPANY EVENTS"+ companyEvents.toString());
+      print("COMPANY EVENTS" + companyEvents.toString());
+
       /// TODO GET REPLICATION ID
       /// GET REPLICATION ID
       //String _replicationId = Uuid().v4();
       //print("REPLICATION ID =======> " + _replicationId);
-      if(companyEvents.isNotEmpty){
-        for(var event in companyEvents){
+      if (companyEvents.isNotEmpty) {
+        for (var event in companyEvents) {
           try {
             CompanyEvent cloudEvent = await cloud.getSingleCompanyEvent(
                 'montimage-company-id', event);
             print("CLOUD EVENT COMPANY $cloudEvent");
             createCompanyEventStructure(cloudEvent);
-          } catch (e){
-            print("ERROR GETTING EVENT WITH ID $event FOR COMPANY montimage-company-id");
+          } catch (e) {
+            print(
+                "ERROR GETTING EVENT WITH ID $event FOR COMPANY montimage-company-id");
           }
         }
         print("[UPDATE COMPANY EVENTS] Finished OK");
       }
-    } catch (e){
+    } catch (e) {
       print("ERROR GETTING CLOUD COMPANY EVENTS");
     }
   }
@@ -2332,10 +2365,11 @@ class ReplicationService implements ReplicationController {
     try {
       devicesNode = await getNode(":Devices:device_UUID");
       print("DEVICE UUID STRUCTURE DOES EXIST");
-    } catch(exp) {
-      toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID", _replicationAPI);
+    } catch (exp) {
+      toolbox_api.Node devicesNode =
+          toolbox_api.NodeImpl(":Devices:device_UUID", _replicationAPI);
       toolbox_api.Visibility? checkerVisible =
-      toolbox_api.VisibilityExtension.valueOf("amber");
+          toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerVisible != null) {
         devicesNode.visibility = checkerVisible;
       }
@@ -2345,10 +2379,11 @@ class ReplicationService implements ReplicationController {
     try {
       devicesNode = await getNode(":Devices:device_UUID:$_currentDevice");
       print("CURRENT DEVICE STRUCTURE DOES EXIST");
-    } catch(exp) {
-      toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice", _replicationAPI);
+    } catch (exp) {
+      toolbox_api.Node devicesNode = toolbox_api.NodeImpl(
+          ":Devices:device_UUID:$_currentDevice", _replicationAPI);
       toolbox_api.Visibility? checkerVisible =
-      toolbox_api.VisibilityExtension.valueOf("amber");
+          toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerVisible != null) {
         devicesNode.visibility = checkerVisible;
       }
@@ -2358,10 +2393,11 @@ class ReplicationService implements ReplicationController {
     try {
       devicesNode = await getNode(":Devices:device_UUID:$_currentDevice:data");
       print("DATA STRUCTURE DOES EXIST");
-    } catch(exp) {
-      toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data", _replicationAPI);
+    } catch (exp) {
+      toolbox_api.Node devicesNode = toolbox_api.NodeImpl(
+          ":Devices:device_UUID:$_currentDevice:data", _replicationAPI);
       toolbox_api.Visibility? checkerVisible =
-      toolbox_api.VisibilityExtension.valueOf("amber");
+          toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerVisible != null) {
         devicesNode.visibility = checkerVisible;
       }
@@ -2369,12 +2405,14 @@ class ReplicationService implements ReplicationController {
     }
 
     try {
-      devicesNode = await getNode(":Devices:device_UUID:$_currentDevice:data:metrics");
+      devicesNode =
+          await getNode(":Devices:device_UUID:$_currentDevice:data:metrics");
       print("DATA METRICS STRUCTURE DOES EXIST");
-    } catch(exp) {
-      toolbox_api.Node devicesNode =toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data:metrics", _replicationAPI);
+    } catch (exp) {
+      toolbox_api.Node devicesNode = toolbox_api.NodeImpl(
+          ":Devices:device_UUID:$_currentDevice:data:metrics", _replicationAPI);
       toolbox_api.Visibility? checkerVisible =
-      toolbox_api.VisibilityExtension.valueOf("amber");
+          toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerVisible != null) {
         devicesNode.visibility = checkerVisible;
       }
@@ -2382,24 +2420,38 @@ class ReplicationService implements ReplicationController {
     }
 
     try {
-      devicesNode = toolbox_api.NodeImpl(":Devices:device_UUID:$_currentDevice:data:metrics", _replicationAPI);
+      devicesNode = toolbox_api.NodeImpl(
+          ":Devices:device_UUID:$_currentDevice:data:metrics", _replicationAPI);
       String _replicationId = Uuid().v4();
       print("REPLICATION ID =======> " + _replicationId);
-      toolbox_api.Node structure = toolbox_api.NodeImpl(':Devices:device_UUID:$_currentDevice:data:metrics:$_replicationId', _replicationAPI);
-      toolbox_api.Visibility? checkerData = toolbox_api.VisibilityExtension.valueOf("amber");
+      toolbox_api.Node structure = toolbox_api.NodeImpl(
+          ':Devices:device_UUID:$_currentDevice:data:metrics:$_replicationId',
+          _replicationAPI);
+      toolbox_api.Visibility? checkerData =
+          toolbox_api.VisibilityExtension.valueOf("amber");
       if (checkerData != null) {
         structure.visibility = checkerData;
       }
-      structure.addValue(toolbox_api.NodeValueImpl('name', e.getName.toString()));
-      structure.addValue(toolbox_api.NodeValueImpl('minValue', e.getMinValue.toString()));
-      structure.addValue(toolbox_api.NodeValueImpl('maxValue', e.getMaxValue.toString()));
-      structure.addValue(toolbox_api.NodeValueImpl('GEIGERvalue', e.getGeigerValue.toString()));
-      structure.addValue(toolbox_api.NodeValueImpl('valueType', e.getValueType.toString()));
-      structure.addValue(toolbox_api.NodeValueImpl('type', e.getType.toString()));
-      structure.addValue(toolbox_api.NodeValueImpl('relation', e.getRelation.toString()));
-      structure.addValue(toolbox_api.NodeValueImpl('threatsImpact', e.getThreatsImpact.toString()));
-      structure.addValue(toolbox_api.NodeValueImpl('flag', e.getFlag.toString()));
-      structure.addValue(toolbox_api.NodeValueImpl('description', e.getDescription.toString()));
+      structure
+          .addValue(toolbox_api.NodeValueImpl('name', e.getName.toString()));
+      structure.addValue(
+          toolbox_api.NodeValueImpl('minValue', e.getMinValue.toString()));
+      structure.addValue(
+          toolbox_api.NodeValueImpl('maxValue', e.getMaxValue.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl(
+          'GEIGERvalue', e.getGeigerValue.toString()));
+      structure.addValue(
+          toolbox_api.NodeValueImpl('valueType', e.getValueType.toString()));
+      structure
+          .addValue(toolbox_api.NodeValueImpl('type', e.getType.toString()));
+      structure.addValue(
+          toolbox_api.NodeValueImpl('relation', e.getRelation.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl(
+          'threatsImpact', e.getThreatsImpact.toString()));
+      structure
+          .addValue(toolbox_api.NodeValueImpl('flag', e.getFlag.toString()));
+      structure.addValue(toolbox_api.NodeValueImpl(
+          'description', e.getDescription.toString()));
       devicesNode.addChild(structure);
       //await _storageController.add(devicesNode);
       print("NEW DEVICES STRUCTURE " + structure.toString());
@@ -2627,7 +2679,7 @@ class ReplicationService implements ReplicationController {
         if (tlp.toLowerCase() == 'red' && _enableEncryption) {
           try {
             Map<dynamic, dynamic> encryptedNode =
-            await encryptListenerCloudData(newNode);
+                await encryptListenerCloudData(newNode);
             toCheck.content = json.encode(encryptedNode);
           } catch (e) {
             print(e);
@@ -2749,13 +2801,18 @@ class ReplicationService implements ReplicationController {
             iv: iv);
         jsonify['custom_fields'] = decrypted;
         print("********* FOR REVIEW PORPUSES *******");
-        print("********* DATA DECRYPTION FROM CLOUD TO DEVICE - FUNCTION decryptCloudData*******");
-        print("**************************** KEY VALUE ****************************");
+        print(
+            "********* DATA DECRYPTION FROM CLOUD TO DEVICE - FUNCTION decryptCloudData*******");
+        print(
+            "**************************** KEY VALUE ****************************");
         print("keyVal: " + keyVal.toString());
-        print("**************************** END KEY VALUE ****************************");
-        print("**************************** DECRYPTED VALUE ****************************");
+        print(
+            "**************************** END KEY VALUE ****************************");
+        print(
+            "**************************** DECRYPTED VALUE ****************************");
         print(decrypted);
-        print("**************************** END DECRYPTED VALUE ****************************");
+        print(
+            "**************************** END DECRYPTED VALUE ****************************");
         print("********* END FOR REVIEW PORPUSES *******");
         return jsonify;
       } else {
@@ -2948,7 +3005,6 @@ class ReplicationService implements ReplicationController {
     }
   }
 
-
 /*
 // TTBOMK Functions do not used within the GEIGER APP //
   @override
@@ -3118,21 +3174,39 @@ class ReplicationService implements ReplicationController {
   }
 */
 
+  ///create :Enterprise:users:uuid:devicePairing path
+  // Future<void> createDevicesPairingPath() async {
+  //   try {
+  //     await _storageController
+  //         .get("$_enterpriseUsers:$_username:$_enterpriseUsers");
+  //   } catch (e) {
+  //     String devicePairingPath =
+  //         "$_enterpriseUsers:$_username:$_enterpriseUsers";
+  //     toolbox_api.Node node =
+  //         toolbox_api.NodeImpl(devicePairingPath, "cloud-adapter");
+  //     await _storageController.addOrUpdate(node);
+  //   }
+  // }
 
   @override
-  Future<bool> createPairingStructure(String qrUserId, String qrDeviceId, String publicKey, String type) async {
+  Future<bool> createPairingStructure(
+      String qrUserId, String qrDeviceId, String publicKey, String type) async {
     if (type.contains('device')) {
       try {
-        toolbox_api.Node structure =
-        await getNode(
-            '$_enterpriseUsers:$_username:$_devicesPairing:$qrDeviceId');
+        toolbox_api.Node structure = await getNode(
+            '$_enterpriseUsers:$_username:$_enterpriseUsers:$qrDeviceId');
       } catch (e) {
         print("DEVICES PAIRING STRUCTURE FOR $qrDeviceId DOES NOT EXIST");
-        toolbox_api.Node structure = await getNode(
-            '$_enterpriseUsers:$_username:$_devicesPairing');
+
+        //not needed, this node already exist
+        // toolbox_api.Node structure =
+        //     await getNode('$_enterpriseUsers:$_username:$_devicesPairing');
+
+        //this qrDeviceId node will automatically be appended to devicesPairing nod
         toolbox_api.Node geigerScore = toolbox_api.NodeImpl(
             '$_enterpriseUsers:$_username:$_devicesPairing:$qrDeviceId',
             _devicesPairing);
+
         try {
           Event score = await cloud.getUserGeigerScore(qrUserId);
           if (_enableEncryption) {
@@ -3141,30 +3215,36 @@ class ReplicationService implements ReplicationController {
           }
           Event device = await cloud.getUserDeviceInfo(qrUserId, qrDeviceId);
           User userQr = await cloud.getUser(qrUserId);
-          geigerScore.addValue(
+          geigerScore.addOrUpdateValue(
               toolbox_api.NodeValueImpl('userName', userQr.name ?? ""));
-          geigerScore.addValue(
-              toolbox_api.NodeValueImpl('userUUID', qrUserId));
-          geigerScore.addValue(toolbox_api.NodeValueImpl('deviceName',
+          geigerScore.addValue(toolbox_api.NodeValueImpl('userUUID', qrUserId));
+          geigerScore.addOrUpdateValue(toolbox_api.NodeValueImpl('deviceName',
               jsonDecode(device.content!)['custom_fields'][0]['value']));
           geigerScore.addValue(toolbox_api.NodeValueImpl('deviceType',
               jsonDecode(device.content!)['custom_fields'][2]['value']));
-          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedGeigerScore',
+          geigerScore.addOrUpdateValue(toolbox_api.NodeValueImpl(
+              'sharedGeigerScore',
               jsonDecode(score.content!)['custom_fields'][0]['value']));
-          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedThreatsScore',
+          geigerScore.addOrUpdateValue(toolbox_api.NodeValueImpl(
+              'sharedThreatsScore',
               jsonDecode(score.content!)['custom_fields'][3]['value']));
-          geigerScore.addValue(toolbox_api.NodeValueImpl('sharedNumberOfMetric',
+          geigerScore.addOrUpdateValue(toolbox_api.NodeValueImpl(
+              'sharedNumberOfMetric',
               jsonDecode(score.content!)['custom_fields'][2]['value']));
-          geigerScore.addValue(toolbox_api.NodeValueImpl(
+          geigerScore.addOrUpdateValue(toolbox_api.NodeValueImpl(
               'sharedScoreDate', DateTime.now().toString()));
           toolbox_api.Visibility? checkerConfig =
-          toolbox_api.VisibilityExtension.valueOf("amber");
+              toolbox_api.VisibilityExtension.valueOf("amber");
           if (checkerConfig != null) {
             geigerScore.visibility = checkerConfig;
           }
-          structure.addChild(geigerScore);
-          log("NEW ENTERPRISE STRUCTURE " + geigerScore.getValues().toString());
-          await _storageController.addOrUpdate(structure);
+
+          log("NEW ENTERPRISE STRUCTURE ${await geigerScore.getValues()}");
+
+          //addorUpdate geigerScore node
+          await _storageController.addOrUpdate(geigerScore);
+
+          // await _storageController.addOrUpdate(structure);
           return true;
         } catch (e) {
           print("PAIRING STRUCTURE FAILED TO GET GEIGER SCORE");
@@ -3173,13 +3253,12 @@ class ReplicationService implements ReplicationController {
       }
     } else {
       try {
-        toolbox_api.Node structure =
-        await getNode(
+        toolbox_api.Node structure = await getNode(
             '$_enterpriseUsers:$_username:$_employeesPairing:$qrUserId');
       } catch (e) {
         print("EMPLOYEES PAIRING STRUCTURE FOR $qrUserId DOES NOT EXIST");
-        toolbox_api.Node structure = await getNode(
-            '$_enterpriseUsers:$_username:$_employeesPairing');
+        toolbox_api.Node structure =
+            await getNode('$_enterpriseUsers:$_username:$_employeesPairing');
         toolbox_api.Node geigerScore = toolbox_api.NodeImpl(
             '$_enterpriseUsers:$_username:$_employeesPairing:$qrUserId',
             _devicesPairing);
@@ -3193,8 +3272,7 @@ class ReplicationService implements ReplicationController {
           User userQr = await cloud.getUser(qrUserId);
           geigerScore.addValue(
               toolbox_api.NodeValueImpl('userName', userQr.name ?? ""));
-          geigerScore.addValue(
-              toolbox_api.NodeValueImpl('userUUID', qrUserId));
+          geigerScore.addValue(toolbox_api.NodeValueImpl('userUUID', qrUserId));
           geigerScore.addValue(toolbox_api.NodeValueImpl('sharedGeigerScore',
               jsonDecode(score.content!)['custom_fields'][0]['value']));
           geigerScore.addValue(toolbox_api.NodeValueImpl('sharedNumberOfMetric',
@@ -3202,7 +3280,7 @@ class ReplicationService implements ReplicationController {
           geigerScore.addValue(toolbox_api.NodeValueImpl(
               'sharedScoreDate', DateTime.now().toString()));
           toolbox_api.Visibility? checkerConfig =
-          toolbox_api.VisibilityExtension.valueOf("amber");
+              toolbox_api.VisibilityExtension.valueOf("amber");
           if (checkerConfig != null) {
             geigerScore.visibility = checkerConfig;
           }
