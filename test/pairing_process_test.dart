@@ -1,6 +1,6 @@
 import 'package:cloud_replication_package/cloud_replication_package.dart';
-import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 import 'package:geiger_api/geiger_api.dart';
+import 'package:geiger_localstorage/geiger_localstorage.dart' as toolbox_api;
 import 'package:test/test.dart';
 
 void pairingTests() async {
@@ -29,7 +29,7 @@ void pairingTests() async {
     ReplicationController rep = ReplicationService();
     await rep.initGeigerStorage();
     await rep.setPair('b9fc801e-59fc-4672-8638-7c4717034172',
-        'd73f9d07-ffc0-4878-be74-89f1d05d7a5d', 'both');
+        'd73f9d07-ffc0-4878-be74-89f1d05d7a5d', 'key', 'both', 'device');
     print(
         "********************************* AFTER PAIRING *******************************************");
     print(await storageController.dump());
